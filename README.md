@@ -54,6 +54,7 @@ See [`examples/1.0/`](examples/1.0/) for more examples.
 | [Event Types](docs/event-types.md) | Recommended patterns for common events |
 | [Privacy Model](docs/privacy-model.md) | PHI-safe design principles |
 | [Controls Mapping](docs/controls-mapping.md) | Engineering mapping to compliance objectives |
+| [Query Examples](docs/query-examples.md) | Representative audit queries supported by the schema |
 | [Versioning](docs/versioning.md) | Schema evolution and version management |
 | [Rationale](docs/rationale.md) | Why this standard exists |
 
