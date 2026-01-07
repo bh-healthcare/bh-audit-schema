@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "event_id": "c1d2e3f4-1111-2222-3333-444455556666",
+  "timestamp": "2026-01-06T18:42:01Z",
+  "service": {
+    "name": "bh-auth-api",
+    "environment": "prod"
+  },
+  "actor": {
+    "subject_id": "user_123",
+    "subject_type": "human",
+    "org_id": "org_77"
+  },
+  "action": {
+    "type": "LOGIN",
+    "phi_touched": false,
+    "data_classification": "NONE"
+  },
+  "resource": {
+    "type": "Session",
+    "id": "sess_abc"
+  },
+  "outcome": {
+    "status": "SUCCESS"
+  }
+}
+

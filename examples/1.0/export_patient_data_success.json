@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "event_id": "9a8b7c6d-5555-6666-7777-888899990000",
+  "timestamp": "2026-01-06T18:43:10Z",
+  "service": {
+    "name": "bh-admin-api",
+    "environment": "prod"
+  },
+  "actor": {
+    "subject_id": "user_999",
+    "subject_type": "human",
+    "org_id": "org_77",
+    "roles": ["admin"]
+  },
+  "action": {
+    "type": "EXPORT",
+    "name": "export_patient_record",
+    "phi_touched": true,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "PatientRecord",
+    "id": "export_111",
+    "patient_id": "pat_456"
+  },
+  "outcome": {
+    "status": "SUCCESS"
+  },
+  "metadata": {
+    "export_format": "pdf",
+    "reason": "continuity_of_care"
+  }
+}
+

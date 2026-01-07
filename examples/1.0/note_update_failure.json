@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "event_id": "2f4c1d11-3f42-44d3-83a0-1d3f7e1d2b1c",
+  "timestamp": "2026-01-06T18:41:55Z",
+  "service": {
+    "name": "bh-notes-api",
+    "environment": "prod"
+  },
+  "correlation": {
+    "request_id": "req_01HT7X9KQZV8N3M2P1R4S5T6U8"
+  },
+  "actor": {
+    "subject_id": "user_789",
+    "subject_type": "human",
+    "org_id": "org_77",
+    "roles": ["therapist"]
+  },
+  "action": {
+    "type": "UPDATE",
+    "phi_touched": true,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "Note",
+    "id": "note_999",
+    "patient_id": "pat_456"
+  },
+  "http": {
+    "method": "PATCH",
+    "route_template": "/patients/{patient_id}/notes/{note_id}",
+    "status_code": 403
+  },
+  "outcome": {
+    "status": "FAILURE",
+    "error_type": "Forbidden",
+    "error_message": "Access denied."
+  }
+}
+
