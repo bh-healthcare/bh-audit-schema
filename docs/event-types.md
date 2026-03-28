@@ -171,19 +171,21 @@ Optional fields (`client_ip`, `user_agent`) are useful for security investigatio
 }
 ```
 
-### Failed Access Attempt
+### Denied Access Attempt
+
+When the system correctly refuses access, use `DENIED` (not `FAILURE`). `DENIED` means the authorization system worked as intended. `FAILURE` means an operational error occurred.
 
 ```json
 {
-  "action": { "type": "READ", "phi_touched": true, "data_classification": "PHI" },
+  "action": { "type": "READ", "phi_touched": false, "data_classification": "PHI" },
   "resource": { "type": "Note", "id": "note_456", "patient_id": "pat_123" },
-  "outcome": { 
-    "status": "FAILURE", 
-    "error_type": "Forbidden", 
-    "error_message": "Access denied." 
-  }
+  "outcome": { "status": "DENIED", "error_type": "RoleDenied" }
 }
 ```
+
+`error_type` is required on DENIED events so compliance and SOC teams can distinguish denial categories (role-based, cross-org, consent, session expiry, etc.). `error_message` is optional -- the category alone is often sufficient.
+
+> **`phi_touched` on DENIED events:** Set to `false` because PHI was not actually accessed -- the request was blocked. `data_classification` still reflects what the *resource contains*, not what the actor saw. This distinction matters for compliance reporting: the resource is PHI, but no PHI was disclosed.
 
 ---
 

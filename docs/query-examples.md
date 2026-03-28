@@ -56,9 +56,9 @@ WHERE actor.subject_type = 'service';
 SELECT * FROM audit_events
 WHERE 'physician' = ANY(actor.roles);
 
--- Cross-organization access attempts
+-- Cross-organization access attempts (v1.1: owner_org_id on actor)
 SELECT * FROM audit_events
-WHERE actor.org_id != resource.owner_org_id;  -- if owner tracked
+WHERE actor.org_id != actor.owner_org_id;
 ```
 
 ### Security Incident Detection
@@ -77,6 +77,27 @@ SELECT * FROM audit_events
 WHERE action.type = 'EXPORT'
   AND outcome.status = 'FAILURE'
   AND action.phi_touched = true;
+
+-- Authorization denials by category (v1.1 DENIED status + required error_type)
+SELECT outcome.error_type, COUNT(*) as denial_count
+FROM audit_events
+WHERE outcome.status = 'DENIED'
+GROUP BY outcome.error_type
+ORDER BY denial_count DESC;
+
+-- Cross-organization denial attempts
+SELECT actor.subject_id, actor.org_id, actor.owner_org_id,
+       outcome.error_type, resource.patient_id
+FROM audit_events
+WHERE outcome.status = 'DENIED'
+  AND actor.org_id != actor.owner_org_id;
+
+-- Suspicious denial patterns (many denials from one actor)
+SELECT actor.subject_id, outcome.error_type, COUNT(*) as attempts
+FROM audit_events
+WHERE outcome.status = 'DENIED'
+GROUP BY actor.subject_id, outcome.error_type
+HAVING COUNT(*) > 10;
 ```
 
 ### Correlation and Tracing

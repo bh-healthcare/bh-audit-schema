@@ -71,7 +71,7 @@ See [docs/versioning.md](docs/versioning.md) for versioning policy.
 
 - Use `additionalProperties: false` for strict validation
 - Include `description` for all fields
-- Use consistent naming (camelCase for fields)
+- Use consistent naming (snake_case for fields)
 - Keep schemas readable and well-formatted
 
 ### Examples
