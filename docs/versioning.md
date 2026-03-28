@@ -20,13 +20,17 @@ The schema follows semantic versioning principles:
 - Changing a field's type
 - Removing an enum value
 - Changing field semantics in incompatible ways
-- Tightening validation constraints on required fields
 
 **Non-breaking changes (minor version bump):**
-- Adding optional fields
-- Adding new enum values
+- Adding optional fields or sub-fields
+- Adding new enum values (e.g., new outcome statuses)
+- Adding format, minLength, maxLength, or range constraints to previously unconstrained fields
+- Adding conditional validation requirements (e.g., FAILURE requires error fields)
+- Restricting metadata value types (e.g., scalar-only)
 - Relaxing validation constraints
 - Clarifying documentation
+
+> **Note:** Adding constraints to previously unconstrained areas (e.g., requiring `format: "uuid"` on `event_id` that previously only required `minLength: 16`) is considered non-breaking because well-formed producers already satisfy the new constraints. The migration notes in each version's CHANGELOG document what changes may require producer updates.
 
 ---
 
@@ -70,7 +74,7 @@ Every audit event must include a `schema_version` field:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   ...
 }
 ```
@@ -131,9 +135,10 @@ Schema changes follow this process:
 
 ## Version History
 
-| Version | Release Date | Status       | Notes                    |
-|---------|--------------|--------------|--------------------------|
-| 1.0     | 2026-01-06   | Current      | Initial release          |
+| Version | Release Date | Status       | Notes                                                        |
+|---------|--------------|--------------|--------------------------------------------------------------|
+| 1.1     | 2026-03-11   | Current      | Hardening: UUID enforcement, DENIED status, metadata scalars |
+| 1.0     | 2026-01-06   | Supported    | Initial release                                              |
 
 ---
 

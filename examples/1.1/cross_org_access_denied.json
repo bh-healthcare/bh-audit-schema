@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.1",
+  "event_id": "dd112233-4455-6677-8899-aabbccddeeff",
+  "timestamp": "2026-03-11T20:15:44Z",
+  "service": {
+    "name": "bh-intake-api",
+    "environment": "prod"
+  },
+  "correlation": {
+    "request_id": "req_cross_org_001"
+  },
+  "actor": {
+    "subject_id": "user_321",
+    "subject_type": "human",
+    "org_id": "org_99",
+    "owner_org_id": "org_77",
+    "roles": ["physician"]
+  },
+  "action": {
+    "type": "READ",
+    "phi_touched": false,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "Patient",
+    "id": "pat_456",
+    "patient_id": "pat_456"
+  },
+  "http": {
+    "method": "GET",
+    "route_template": "/patients/{patient_id}",
+    "status_code": 403
+  },
+  "outcome": {
+    "status": "DENIED",
+    "error_type": "CrossOrgAccessDenied"
+  }
+}

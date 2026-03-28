@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.1",
+  "event_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "timestamp": "2026-03-11T19:10:33Z",
+  "service": {
+    "name": "bh-intake-api",
+    "environment": "prod"
+  },
+  "correlation": {
+    "request_id": "req_02JK8Y0LRAV9O4N3Q2S5T6U7V8"
+  },
+  "actor": {
+    "subject_id": "user_555",
+    "subject_type": "human",
+    "org_id": "org_88",
+    "owner_org_id": "org_77",
+    "roles": ["front_desk"]
+  },
+  "action": {
+    "type": "READ",
+    "phi_touched": false,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "Patient",
+    "id": "pat_456",
+    "patient_id": "pat_456"
+  },
+  "http": {
+    "method": "GET",
+    "route_template": "/patients/{patient_id}",
+    "status_code": 403
+  },
+  "outcome": {
+    "status": "DENIED",
+    "error_type": "RoleDenied"
+  }
+}

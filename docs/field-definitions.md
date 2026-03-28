@@ -1,6 +1,6 @@
 # Field Definitions
 
-This document defines the semantics for each field in the BH Audit Event schema.
+This document defines the semantics for each field in the BH Audit Event schema (v1.1).
 
 ---
 
@@ -8,16 +8,16 @@ This document defines the semantics for each field in the BH Audit Event schema.
 
 ### `schema_version`
 
-- **Type:** `string` (const `"1.0"`)
+- **Type:** `string` (const `"1.1"`)
 - **Required:** Yes
 - **Purpose:** Declares which version of the audit schema this event conforms to. Enables consumers to route events to version-appropriate processors.
 
 ### `event_id`
 
-- **Type:** `string` (min 16 characters)
+- **Type:** `string` (format: `uuid`, exactly 36 characters)
 - **Required:** Yes
-- **Purpose:** Globally unique identifier for this audit event. UUIDv4 is recommended.
-- **Guidance:** Generate at event creation time. Do not reuse across retries.
+- **Purpose:** Globally unique UUID identifier for this audit event.
+- **Guidance:** Generate a UUIDv4 at event creation time. Do not reuse across retries.
 
 ### `timestamp`
 
@@ -32,11 +32,11 @@ This document defines the semantics for each field in the BH Audit Event schema.
 
 Describes the service that generated the audit event.
 
-| Field         | Type   | Required | Description                                      |
-|---------------|--------|----------|--------------------------------------------------|
-| `name`        | string | Yes      | Canonical service name (e.g., `bh-intake-api`)   |
-| `environment` | string | No       | Deployment environment (`prod`, `staging`, `dev`)|
-| `version`     | string | No       | Service version or build identifier              |
+| Field         | Type   | Required | Constraints       | Description                                      |
+|---------------|--------|----------|-------------------|--------------------------------------------------|
+| `name`        | string | Yes      | minLength: 1, maxLength: 128 | Canonical service name (e.g., `bh-intake-api`) |
+| `environment` | string | No       | maxLength: 64     | Deployment environment (`prod`, `staging`, `dev`)|
+| `version`     | string | No       | maxLength: 64     | Service version or build identifier              |
 
 **Guidance:** Use consistent service names across your organization. The `name` field should match what appears in your service registry.
 
@@ -46,11 +46,13 @@ Describes the service that generated the audit event.
 
 Identifiers for correlating events across services and requests.
 
-| Field        | Type   | Required | Description                                           |
-|--------------|--------|----------|-------------------------------------------------------|
-| `request_id` | string | No       | Unique identifier for the originating HTTP request    |
-| `trace_id`   | string | No       | Distributed tracing identifier (e.g., OpenTelemetry)  |
-| `session_id` | string | No       | User session identifier                               |
+| Field        | Type   | Required | Constraints           | Description                                           |
+|--------------|--------|----------|-----------------------|-------------------------------------------------------|
+| `request_id` | string | No       | minLength: 1, maxLength: 256 | Unique identifier for the originating HTTP request |
+| `trace_id`   | string | No       | minLength: 1, maxLength: 256 | Distributed tracing identifier (e.g., OpenTelemetry) |
+| `session_id` | string | No       | minLength: 1, maxLength: 256 | User session identifier                              |
+
+**Constraints:** When present, the correlation object must contain at least one property (`minProperties: 1`). Empty `{}` is not valid.
 
 **Guidance:** Include `request_id` for HTTP-triggered events. Include `trace_id` if your infrastructure supports distributed tracing.
 
@@ -60,22 +62,28 @@ Identifiers for correlating events across services and requests.
 
 Describes who or what performed the action.
 
-| Field          | Type     | Required | Description                                                  |
-|----------------|----------|----------|--------------------------------------------------------------|
-| `subject_id`   | string   | Yes      | Unique identifier for the actor                              |
-| `subject_type` | string   | Yes      | `human` or `service`                                         |
-| `org_id`       | string   | No       | Organization/tenant identifier                               |
-| `roles`        | string[] | No       | Roles held by the actor at time of access                    |
+| Field          | Type     | Required | Constraints           | Description                                                  |
+|----------------|----------|----------|-----------------------|--------------------------------------------------------------|
+| `subject_id`   | string   | Yes      | minLength: 1, maxLength: 256 | Unique identifier for the actor                        |
+| `subject_type` | string   | Yes      | enum: `human`, `service` | Whether the actor is a human user or a service principal  |
+| `org_id`       | string   | No       | minLength: 1, maxLength: 128 | Organization/tenant identifier of the actor             |
+| `owner_org_id` | string   | No       | minLength: 1, maxLength: 128 | Organization that owns the resource being accessed      |
+| `roles`        | string[] | No       | maxItems: 25, items minLength: 1, maxLength: 64 | Roles held by the actor at time of access |
 
 ### `subject_type` Values
 
 - **`human`**: A human user authenticated via your identity system.
 - **`service`**: A service principal, background job, or machine-to-machine actor.
 
+### `owner_org_id` (v1.1)
+
+Used for cross-organization access detection. When `actor.org_id != actor.owner_org_id`, the actor is accessing resources owned by a different organization. This is critical for multi-tenant behavioral health systems and HIPAA compliance queries.
+
 **Guidance:**
 - Use internal user IDs, not email addresses or names.
 - Capture `roles` at time of access to support access review audits.
 - Include `org_id` for multi-tenant systems.
+- Include `owner_org_id` when the resource belongs to a different org than the actor.
 
 ---
 
@@ -83,12 +91,12 @@ Describes who or what performed the action.
 
 Describes what action was performed.
 
-| Field                | Type    | Required | Description                                                      |
-|----------------------|---------|----------|------------------------------------------------------------------|
-| `type`               | string  | Yes      | Action category (see enum below)                                 |
-| `name`               | string  | No       | Specific action name (e.g., `sign_bps`, `verify_insurance`)      |
-| `phi_touched`        | boolean | No       | Whether the action touched regulated PHI                         |
-| `data_classification`| string  | No       | Data classification: `PHI`, `PII`, `NONE`, `UNKNOWN`             |
+| Field                | Type    | Required | Constraints              | Description                                                      |
+|----------------------|---------|----------|--------------------------|------------------------------------------------------------------|
+| `type`               | string  | Yes      | enum (see below)         | Action category                                                  |
+| `name`               | string  | No       | maxLength: 128           | Specific action name (e.g., `sign_bps`, `verify_insurance`)      |
+| `phi_touched`        | boolean | No       |                          | Whether the action touched regulated PHI                         |
+| `data_classification`| string  | No       | enum (see below)         | Data classification: `PHI`, `PII`, `NONE`, `UNKNOWN`             |
 
 ### `action.type` Enum
 
@@ -106,8 +114,10 @@ Describes what action was performed.
 
 ### `phi_touched` and `data_classification`
 
-- **`phi_touched`**: Boolean flag indicating whether the action accessed or modified Protected Health Information under HIPAA/42 CFR Part 2.
-- **`data_classification`**: More granular classification. Use `PHI` for behavioral health data, `PII` for identifiable but non-health data, `NONE` for non-sensitive data.
+- **`phi_touched`**: Boolean flag indicating whether the action actually accessed or modified Protected Health Information under HIPAA/42 CFR Part 2.
+- **`data_classification`**: Classification of what the *resource contains*, regardless of whether it was actually accessed.
+
+**On DENIED events:** Set `phi_touched: false` because PHI was not actually accessed (the request was blocked). Set `data_classification` to reflect what the resource contains (e.g., `"PHI"`), not what the actor saw. This distinction matters for compliance: the resource is PHI, but no PHI was disclosed.
 
 **Guidance:**
 - Set `phi_touched: true` for any action that reads, writes, or transmits patient clinical data.
@@ -119,11 +129,11 @@ Describes what action was performed.
 
 Describes the resource being acted upon.
 
-| Field        | Type   | Required | Description                                                   |
-|--------------|--------|----------|---------------------------------------------------------------|
-| `type`       | string | Yes      | Resource type (e.g., `Patient`, `Note`, `Encounter`)          |
-| `id`         | string | No       | Resource identifier                                           |
-| `patient_id` | string | No       | Patient identifier, if applicable                             |
+| Field        | Type   | Required | Constraints           | Description                                                   |
+|--------------|--------|----------|-----------------------|---------------------------------------------------------------|
+| `type`       | string | Yes      | minLength: 1, maxLength: 128 | Resource type (e.g., `Patient`, `Note`, `Encounter`)    |
+| `id`         | string | No       | minLength: 1, maxLength: 256 | Resource identifier                                     |
+| `patient_id` | string | No       | minLength: 1, maxLength: 256 | Patient identifier, if applicable                       |
 
 ### `patient_id` Usage
 
@@ -142,20 +152,20 @@ Include `patient_id` when:
 
 HTTP request context for web-triggered events.
 
-| Field            | Type    | Required | Description                                                   |
-|------------------|---------|----------|---------------------------------------------------------------|
-| `method`         | string  | No       | HTTP method (`GET`, `POST`, `PATCH`, `DELETE`, etc.)          |
-| `route_template` | string  | No       | URL template, not raw path                                    |
-| `status_code`    | integer | No       | HTTP response status code                                     |
-| `client_ip`      | string  | No       | Client IP address                                             |
-| `user_agent`     | string  | No       | User-Agent header value                                       |
+| Field            | Type    | Required | Constraints                       | Description                                    |
+|------------------|---------|----------|-----------------------------------|------------------------------------------------|
+| `method`         | string  | No       | enum: `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` | HTTP method |
+| `route_template` | string  | No       | maxLength: 512                    | URL template, not raw path                     |
+| `status_code`    | integer | No       | minimum: 100, maximum: 599       | HTTP response status code                      |
+| `client_ip`      | string  | No       | format: ipv4 or ipv6             | Client IP address (IPv4 or IPv6)               |
+| `user_agent`     | string  | No       | maxLength: 512                    | User-Agent header value                        |
 
 ### `route_template` vs Raw Path
 
 **Always use route templates, not raw paths.**
 
-- ✅ `/patients/{patient_id}/notes/{note_id}`
-- ❌ `/patients/pat_456/notes/note_999`
+- `/patients/{patient_id}/notes/{note_id}`
+- `/patients/pat_456/notes/note_999`
 
 Raw paths may contain PHI or enable inference attacks.
 
@@ -165,20 +175,40 @@ Raw paths may contain PHI or enable inference attacks.
 
 Describes the result of the action.
 
-| Field           | Type   | Required | Description                                       |
-|-----------------|--------|----------|---------------------------------------------------|
-| `status`        | string | Yes      | `SUCCESS` or `FAILURE`                            |
-| `error_type`    | string | No       | Error category (e.g., `Forbidden`, `NotFound`)    |
-| `error_message` | string | No       | Sanitized error message                           |
+| Field           | Type   | Required | Constraints              | Description                                       |
+|-----------------|--------|----------|--------------------------|---------------------------------------------------|
+| `status`        | string | Yes      | enum: `SUCCESS`, `FAILURE`, `DENIED` | Result of the action                   |
+| `error_type`    | string | Conditional | minLength: 1, maxLength: 128 | Error category (e.g., `Forbidden`, `NotFound`) |
+| `error_message` | string | Conditional | maxLength: 500           | Sanitized error message                           |
+
+### Status Values (v1.1)
+
+| Status    | Meaning                                        | `error_type`    | `error_message` |
+|-----------|------------------------------------------------|-----------------|-----------------|
+| `SUCCESS` | Action completed successfully                  | Not required    | Not required    |
+| `FAILURE` | An operational error occurred                  | **Required**    | **Required**    |
+| `DENIED`  | System correctly refused access (authz worked) | **Required**    | Optional        |
+
+**`DENIED` design rationale:** A DENIED outcome means the authorization system worked as intended. Unlike FAILURE, it's not an error -- it's correct behavior. However, `error_type` is required because compliance officers and SOC analysts need to distinguish *why* access was denied:
+
+| `error_type` value      | Meaning                                                  |
+|--------------------------|----------------------------------------------------------|
+| `RoleDenied`            | User lacks the required role                             |
+| `CrossOrgAccessDenied`  | User from a different org attempted access               |
+| `ConsentRequired`       | 42 CFR Part 2 consent not on file                        |
+| `SessionExpired`        | Session/token no longer valid                            |
+| `Forbidden`             | Generic authorization denial                             |
+
+These are examples, not an enum -- producers should use descriptive names that are meaningful to their compliance and security teams. `error_message` is optional on DENIED because the category alone is often sufficient.
 
 ### Error Message Sanitization
 
 **`error_message` must not contain PHI.**
 
-- ✅ `"Access denied."`
-- ✅ `"Resource not found."`
-- ❌ `"Patient John Smith not found."`
-- ❌ `"Cannot update note containing diagnosis: depression"`
+- `"Access denied."`
+- `"Resource not found."`
+- ~~`"Patient John Smith not found."`~~
+- ~~`"Cannot update note containing diagnosis: depression"`~~
 
 ---
 
@@ -186,11 +216,16 @@ Describes the result of the action.
 
 Optional fields for tamper-evident audit chaining.
 
-| Field            | Type   | Required | Description                                           |
-|------------------|--------|----------|-------------------------------------------------------|
-| `event_hash`     | string | No       | Hash of this event's content                          |
-| `prev_event_hash`| string | No       | Hash of the previous event in the chain               |
-| `hash_alg`       | string | No       | Hash algorithm used (e.g., `sha256`)                  |
+| Field            | Type   | Required    | Constraints                  | Description                                           |
+|------------------|--------|-------------|------------------------------|-------------------------------------------------------|
+| `event_hash`     | string | No          | minLength: 1, maxLength: 256 | Hash of this event's content                          |
+| `prev_event_hash`| string | No          | minLength: 1, maxLength: 256 | Hash of the previous event in the chain               |
+| `hash_alg`       | string | Conditional | enum: `sha256`, `sha384`, `sha512` | Hash algorithm used                             |
+
+### Dependency Rules (v1.1)
+
+- If `event_hash` is present, `hash_alg` is required.
+- If `prev_event_hash` is present, both `hash_alg` and `event_hash` are required.
 
 **Guidance:** Integrity chaining is optional and implementation-dependent. Useful for high-assurance environments requiring tamper evidence.
 
@@ -200,20 +235,23 @@ Optional fields for tamper-evident audit chaining.
 
 Flexible container for additional safe context.
 
-- **Type:** Object with `additionalProperties: true`
+- **Type:** Object with scalar values only (string, integer, number, boolean, null)
 - **Required:** No
+- **Constraints:** maxProperties: 20. No nested objects or arrays.
 
 ### Rules
 
 1. **Must not contain PHI.**
-2. Use for operational context: export format, business reason codes, feature flags.
-3. Keep keys consistent across services.
+2. **Values must be scalar** -- strings, integers, numbers, booleans, or null. Nested objects and arrays are rejected by the schema.
+3. Use for operational context: export format, business reason codes, feature flags.
+4. Keep keys consistent across services.
 
 **Examples:**
 ```json
 {
   "export_format": "pdf",
-  "reason": "continuity_of_care"
+  "reason": "continuity_of_care",
+  "record_count": 42
 }
 ```
 
@@ -223,4 +261,3 @@ Flexible container for additional safe context.
   "client_version": "2.1.0"
 }
 ```
-
