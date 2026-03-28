@@ -1,183 +1,200 @@
 # Controls Mapping
 
-This document maps the BH Audit Event schema to common compliance control objectives. It is intended as an **engineering reference**, not legal advice.
+This document maps the BH Audit Event schema (v1.1) to HIPAA Security Rule, SOC 2, and 42 CFR Part 2 control objectives. It is intended as an **engineering reference**, not legal advice.
 
 > **Disclaimer:** This document provides engineering mappings only. It does not constitute legal advice, compliance certification, or guarantee of regulatory compliance. Organizations must conduct their own compliance assessments with qualified professionals.
 
 ---
 
-## Overview
+## HIPAA Security Rule Mapping
 
-The BH Audit Event schema is designed to support the following control objectives:
+### §164.312(b) -- Audit Controls
 
-| Objective                | Schema Support | Implementer Responsibility          |
-|--------------------------|----------------|-------------------------------------|
-| Auditability             | ✅ Full        | Emit events, store durably          |
-| Traceability             | ✅ Full        | Populate correlation fields         |
-| Access Review            | ✅ Full        | Query by actor, resource, time      |
-| Integrity                | ⚡ Optional    | Implement hash chaining             |
-| Retention                | 🔶 Partial     | Configure sink retention policies   |
-| Incident Investigation   | ✅ Full        | Ensure correlation IDs are populated|
+*"Implement hardware, software, and/or procedural mechanisms that record and examine activity in information systems that contain or use ePHI."*
 
----
+| Schema Field | How It Supports This Control |
+|---|---|
+| `event_id` (v1.1: UUID enforced) | Uniquely identifies every auditable action |
+| `timestamp` (format: date-time) | Records when each action occurred |
+| `actor.subject_id` | Records who performed the action |
+| `action.type` (enum) | Categorizes what action was performed |
+| `resource.type`, `resource.id` | Identifies what resource was acted upon |
+| `resource.patient_id` | Links actions to specific patient records |
+| `outcome.status` (v1.1: SUCCESS/FAILURE/DENIED) | Records whether the action succeeded, failed, or was denied |
+| `action.phi_touched` | Flags actions that touched protected health information |
+| `action.data_classification` | Classifies sensitivity level of the data involved |
 
-## Auditability / Traceability
+**v1.1 additions:** UUID enforcement ensures event uniqueness across systems. DENIED status distinguishes authorization denials from operational failures, enabling accurate access audit reports.
 
-**Objective:** Maintain a complete, queryable record of access to sensitive data.
+### §164.312(a)(1) -- Access Control
 
-### What the Schema Enables
+*"Implement technical policies and procedures for electronic information systems that maintain ePHI to allow access only to those persons or software programs that have been granted access rights."*
 
-| Field                  | Purpose                                               |
-|------------------------|-------------------------------------------------------|
-| `event_id`             | Unique identifier for each audit event                |
-| `timestamp`            | When the action occurred                              |
-| `actor.subject_id`     | Who performed the action                              |
-| `action.type`          | What type of action was performed                     |
-| `resource.type`        | What type of resource was accessed                    |
-| `resource.id`          | Which specific resource was accessed                  |
-| `resource.patient_id`  | Which patient's data was involved                     |
-| `outcome.status`       | Whether the action succeeded or failed                |
+| Schema Field | How It Supports This Control |
+|---|---|
+| `outcome.status: "DENIED"` (v1.1) | Records when access control policies blocked a request |
+| `outcome.error_type` (v1.1: required on DENIED) | Categorizes the denial reason (RoleDenied, CrossOrgAccessDenied, ConsentRequired) |
+| `actor.roles` | Records role context at time of access |
+| `actor.org_id` | Records which organization the actor belongs to |
+| `actor.owner_org_id` (v1.1) | Records which organization owns the resource -- enables cross-org access detection |
 
-### Implementer Responsibilities
+**v1.1 additions:** `DENIED` with required `error_type` gives compliance teams queryable denial categories. `owner_org_id` enables detection of cross-organization access attempts in multi-tenant environments.
 
-- [ ] Emit audit events for all PHI-touching operations
-- [ ] Store audit events in a durable, queryable sink
-- [ ] Ensure events are written before returning success to the client (or use reliable async delivery)
-- [ ] Protect audit logs from unauthorized modification
+### §164.312(a)(2)(i) -- Unique User Identification
 
----
+*"Assign a unique name and/or number for identifying and tracking user identity."*
 
-## Access Review
+| Schema Field | How It Supports This Control |
+|---|---|
+| `actor.subject_id` (minLength: 1) | Unique actor identifier -- every event is attributable |
+| `actor.subject_type` (enum: human/service) | Distinguishes human users from service principals |
 
-**Objective:** Enable periodic review of who accessed what data and when.
+**v1.1 additions:** `minLength: 1` prevents empty actor IDs that would make events unattributable.
 
-### What the Schema Enables
+### §164.308(a)(1)(ii)(D) -- Information System Activity Review
 
-| Field                  | Enables Query                                         |
-|------------------------|-------------------------------------------------------|
-| `actor.subject_id`     | "What did user X access?"                             |
-| `actor.roles`          | "What actions did role Y perform?"                    |
-| `resource.patient_id`  | "Who accessed patient Z's data?"                      |
-| `timestamp`            | "What happened in time range T?"                      |
-| `action.phi_touched`   | "Show all PHI access events"                          |
-| `outcome.status`       | "Show all failed access attempts"                     |
+*"Implement procedures to regularly review records of information system activity, such as audit logs, access reports, and security incident tracking reports."*
 
-### Implementer Responsibilities
+| Schema Field | How It Supports This Control |
+|---|---|
+| `correlation.request_id`, `trace_id`, `session_id` | Enables correlation across distributed systems for activity review |
+| `http.method`, `http.route_template`, `http.status_code` | Provides HTTP-level context for web-triggered actions |
+| `metadata` (v1.1: scalar-only, maxProperties: 20) | Safe operational context without PHI leakage risk |
 
-- [ ] Populate `actor.roles` at time of access (not just at authentication)
-- [ ] Populate `resource.patient_id` for all patient-specific actions
-- [ ] Build or adopt tooling for access review queries
-- [ ] Establish access review cadence (e.g., quarterly)
+**v1.1 additions:** Correlation fields now require `minLength: 1` (no empty strings). Metadata restricted to scalar values prevents nested PHI from entering audit logs. `maxProperties: 20` bounds event size.
 
----
+### §164.308(a)(5)(ii)(C) -- Log-in Monitoring
 
-## Integrity / Tamper Evidence
+*"Procedures for monitoring log-in attempts and reporting discrepancies."*
 
-**Objective:** Detect unauthorized modification of audit records.
+| Schema Field | How It Supports This Control |
+|---|---|
+| `action.type: "LOGIN"` | Dedicated action type for authentication events |
+| `outcome.status` | Records login success, failure, or denial |
+| `outcome.error_type` (v1.1: required on FAILURE) | Categorizes why the login failed |
+| `http.client_ip` (v1.1: IPv4 + IPv6) | Source IP for failed login correlation |
+| `actor.subject_id` | Which account was targeted |
 
-### What the Schema Enables
+**v1.1 additions:** FAILURE requires `error_type` so login failure reasons are always recorded. `client_ip` supports both IPv4 and IPv6.
 
-| Field                   | Purpose                                              |
-|-------------------------|------------------------------------------------------|
-| `integrity.event_hash`  | Hash of the event content                            |
-| `integrity.prev_event_hash` | Hash of the previous event (chaining)            |
-| `integrity.hash_alg`    | Algorithm used for hashing                           |
+### §164.312(c)(1) -- Integrity
 
-### Implementer Responsibilities
+*"Implement policies and procedures to protect ePHI from improper alteration or destruction."*
 
-- [ ] Implement hash computation at event emission time
-- [ ] Store hashes in a tamper-evident manner (separate from event content)
-- [ ] Build verification tooling to detect chain breaks
-- [ ] Consider external anchoring (e.g., timestamping services) for high-assurance needs
+| Schema Field | How It Supports This Control |
+|---|---|
+| `integrity.event_hash` | Hash of event content for tamper detection |
+| `integrity.prev_event_hash` | Links to previous event for chain verification |
+| `integrity.hash_alg` (v1.1: enum sha256/sha384/sha512) | Specifies the hash algorithm used |
 
-> **Note:** The `integrity` object is optional. Many organizations rely on infrastructure-level protections (immutable storage, write-once logs) rather than application-level chaining.
+**v1.1 additions:** `hash_alg` constrained to strong algorithms only. `dependentRequired` ensures `event_hash` always has a corresponding `hash_alg`, and `prev_event_hash` requires a complete chain context.
 
 ---
 
-## Retention
+## SOC 2 Trust Services Criteria Mapping
 
-**Objective:** Retain audit records for required periods, then dispose appropriately.
+### CC6.1 -- Logical and Physical Access Controls
 
-### What the Schema Enables
+*"The entity implements logical access security software, infrastructure, and architectures over protected information assets."*
 
-| Field              | Purpose                                                   |
-|--------------------|-----------------------------------------------------------|
-| `timestamp`        | Determines event age for retention calculations           |
-| `action.type`      | May influence retention rules (e.g., exports retained longer) |
-| `schema_version`   | Enables version-aware retention policies                  |
+| Schema Support | Fields |
+|---|---|
+| Access logging | `actor`, `action`, `resource`, `outcome` |
+| Denial tracking (v1.1) | `outcome.status: "DENIED"`, `outcome.error_type` |
+| Cross-org detection (v1.1) | `actor.org_id` vs `actor.owner_org_id` |
 
-### Implementer Responsibilities
+### CC6.3 -- Role-Based Access
 
-- [ ] Configure retention policies in your audit sink (not in this schema)
-- [ ] Implement retention rules based on regulatory requirements
-- [ ] Ensure retention applies to all copies (primary, backups, replicas)
-- [ ] Document retention periods and deletion procedures
+*"The entity authorizes, modifies, or removes access to data based on roles and responsibilities."*
 
-> **Note:** Retention periods are organization-specific and regulatory-dependent. This schema does not prescribe retention periods.
+| Schema Support | Fields |
+|---|---|
+| Role capture | `actor.roles` (v1.1: bounded, non-empty items) |
+| Role-based denial tracking | `outcome.error_type: "RoleDenied"` |
+| Access review queries | `actor.subject_id` + `actor.roles` + `resource.patient_id` |
 
----
+### CC7.2 -- System Monitoring
 
-## Incident Investigation / Correlation
+*"The entity monitors system components and the operation of those components for anomalies that are indicative of malicious acts, natural disasters, and errors."*
 
-**Objective:** Enable rapid investigation of security incidents and anomalies.
+| Schema Support | Fields |
+|---|---|
+| Failure pattern detection | `outcome.status: "FAILURE"` + `outcome.error_type` |
+| Denial pattern detection (v1.1) | `outcome.status: "DENIED"` + `outcome.error_type` |
+| Distributed tracing | `correlation.trace_id`, `correlation.request_id` |
+| Client identification | `http.client_ip`, `http.user_agent` |
 
-### What the Schema Enables
+### CC7.3 -- Security Event Evaluation
 
-| Field                    | Purpose                                              |
-|--------------------------|------------------------------------------------------|
-| `correlation.request_id` | Correlate events within a single request             |
-| `correlation.trace_id`   | Correlate events across distributed services         |
-| `correlation.session_id` | Correlate events within a user session               |
-| `http.client_ip`         | Identify source of requests                          |
-| `http.user_agent`        | Identify client software                             |
-| `outcome.error_type`     | Categorize failures for pattern detection            |
+*"The entity evaluates detected security events and determines whether they could reasonably be expected to impact the entity's ability to achieve its objectives."*
 
-### Implementer Responsibilities
-
-- [ ] Populate correlation fields in all events
-- [ ] Integrate with distributed tracing infrastructure
-- [ ] Build alerting on suspicious patterns (e.g., high failure rates, unusual access patterns)
-- [ ] Establish incident response procedures that leverage audit data
-
----
-
-## Regulatory Context
-
-This schema is designed to support (but does not guarantee compliance with):
-
-| Regulation          | Relevant Schema Features                                     |
-|---------------------|--------------------------------------------------------------|
-| HIPAA Security Rule | Access logging, audit controls, integrity controls           |
-| 42 CFR Part 2       | Substance use disorder record access tracking                |
-| State BH Laws       | Behavioral health-specific access logging                    |
-| SOC 2               | Access logging, change tracking, incident response support   |
-
-### Important Limitations
-
-This schema:
-- **Does not** guarantee compliance with any regulation
-- **Does not** replace a compliance program
-- **Does not** provide legal advice
-- **Does** provide engineering primitives that support compliance objectives
+| Schema Support | Fields |
+|---|---|
+| Event categorization | `action.type`, `outcome.status`, `outcome.error_type` |
+| PHI impact assessment | `action.phi_touched`, `action.data_classification` |
+| Patient scope | `resource.patient_id` |
+| Incident correlation | `correlation.*` fields |
 
 ---
 
-## Checklist for Implementers
+## 42 CFR Part 2 Context
+
+42 CFR Part 2 governs confidentiality of substance use disorder (SUD) patient records. It imposes stricter requirements than general HIPAA for behavioral health data.
+
+### §2.16 -- Security for Records
+
+*"Programs must have formal policies and procedures to protect the security of SUD records."*
+
+| Schema Field | How It Supports This |
+|---|---|
+| `action.data_classification: "PHI"` | Identifies events touching regulated data |
+| `action.phi_touched: true` | Flags SUD record access explicitly |
+| `resource.patient_id` | Tracks which patient's SUD records were accessed |
+| `outcome.status: "DENIED"` (v1.1) | Records when SUD record access was blocked |
+| `outcome.error_type: "ConsentRequired"` (v1.1) | Indicates consent-based denial (Part 2 specific) |
+| `actor.owner_org_id` (v1.1) | Detects cross-organization SUD record access attempts |
+| `metadata` (v1.1: scalar-only) | Prevents raw SUD clinical content from entering audit logs |
+
+### §2.13(a) -- Patient Consent
+
+*"Disclosures of SUD records require documented patient consent."*
+
+The schema provides the audit trail for consent-gated access but does not model consent itself. Consent tracking (consent_id, consent_purpose, break-the-glass) is planned for a future schema version. For now, producers should use `outcome.error_type: "ConsentRequired"` when access is denied due to missing consent.
+
+---
+
+## What the Schema Does NOT Do
+
+| Concern | Status |
+|---|---|
+| Guarantee regulatory compliance | Not in scope -- this is an engineering tool |
+| Replace a compliance program | Not in scope |
+| Model consent documents | Planned for future version |
+| Enforce retention periods | Implementer responsibility (see sink configuration) |
+| Provide legal advice | Not in scope |
+| Detect PHI in free-text fields | Not in scope -- relies on producer discipline and allowlists |
+
+---
+
+## Implementer Checklist
 
 ### Minimum Viable Audit Implementation
 
 - [ ] Emit events for all PHI-touching operations
-- [ ] Populate all required fields
-- [ ] Store events in durable, queryable storage
-- [ ] Protect audit logs from unauthorized access
-- [ ] Implement basic access review queries
+- [ ] Populate all required fields (schema_version, event_id, timestamp, service, actor, action, resource, outcome)
+- [ ] Set `action.phi_touched` and `action.data_classification` accurately
+- [ ] Include `resource.patient_id` on patient-specific actions
+- [ ] Populate `actor.roles` at time of access
+- [ ] Record DENIED outcomes with descriptive `error_type`
+- [ ] Store events in a durable, queryable sink
+- [ ] Protect audit logs from unauthorized modification
 
 ### Enhanced Implementation
 
-- [ ] Populate all optional fields where applicable
-- [ ] Implement correlation across services
-- [ ] Build automated alerting on suspicious patterns
-- [ ] Implement integrity chaining
-- [ ] Establish retention automation
-- [ ] Conduct regular access reviews
-
+- [ ] Populate `actor.owner_org_id` for multi-tenant/cross-org scenarios
+- [ ] Implement correlation across services (`trace_id`, `request_id`)
+- [ ] Build automated alerting on DENIED and FAILURE patterns
+- [ ] Implement integrity chaining (event_hash, prev_event_hash, hash_alg)
+- [ ] Establish retention policies (HIPAA: minimum 6 years recommended)
+- [ ] Conduct regular access reviews (quarterly recommended)
+- [ ] Validate emitted events against the v1.1 schema in CI
