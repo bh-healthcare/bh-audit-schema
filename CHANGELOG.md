@@ -5,6 +5,16 @@ All notable changes to the bh-audit-schema project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-03-11
+
+### Added
+
+- **HIPAA/SOC 2/42 CFR Part 2 controls mapping** -- `docs/controls-mapping.md` rewritten with
+  detailed per-section mappings to HIPAA Security Rule (§164.312(b), §164.312(a), §164.308(a),
+  §164.312(c)), SOC 2 Trust Services Criteria (CC6.1, CC6.3, CC7.2, CC7.3), and 42 CFR Part 2
+  (§2.16, §2.13). Each mapping references specific schema fields and calls out v1.1 additions.
+  Includes implementer checklists for minimum viable and enhanced audit implementations.
+
 ## [1.1.0] - 2026-03-11
 
 ### Added
@@ -30,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI workflow: GitHub Actions validates all examples against their schema on every push/PR (with `FormatChecker` enabled).
 - Validation script: `scripts/validate_examples.py`.
 
+See [docs/controls-mapping.md](docs/controls-mapping.md) for detailed HIPAA Security Rule (§164.312, §164.308), SOC 2 (CC6/CC7), and 42 CFR Part 2 alignment.
+
 ### Fixed
 
 - CONTRIBUTING.md incorrectly claimed camelCase naming; corrected to snake_case.
@@ -53,5 +65,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation: field definitions, event types, privacy model, controls mapping, query examples, rationale, versioning.
 - Examples: patient read, login, note update failure, patient data export.
 
+[1.1.1]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/bh-healthcare/bh-audit-schema/releases/tag/v1.0.0

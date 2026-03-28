@@ -30,6 +30,8 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Conditional validation: when `outcome.status == "FAILURE"`, `error_type` and `error_message` are required.
 - Conditional validation: when `outcome.status == "DENIED"`, `error_type` is required (enables compliance teams to distinguish denial categories for HIPAA access review).
 
+See [docs/controls-mapping.md](../../docs/controls-mapping.md) for detailed HIPAA Security Rule, SOC 2, and 42 CFR Part 2 alignment.
+
 ### Changed
 
 - `schema_version` bumped from `"1.0"` to `"1.1"`.
