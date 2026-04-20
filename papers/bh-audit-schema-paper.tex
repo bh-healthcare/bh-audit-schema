@@ -1,0 +1,441 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{natbib}
+\usepackage{url}
+\usepackage{caption}
+\usepackage{pifont}
+
+% Symbol macros for comparison tables
+\newcommand{\cmark}{\ding{51}}
+\newcommand{\xmark}{\ding{55}}
+\newcommand{\pmark}{$\sim$}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+% Code listing style
+\lstdefinestyle{json}{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!5},
+    keywordstyle=\color{blue},
+    stringstyle=\color{red!70!black},
+    commentstyle=\color{green!50!black},
+    showstringspaces=false,
+    tabsize=2
+}
+
+\title{BH Audit Schema: An Open Standard for PHI-Safe Audit Logging\\in Behavioral Health Systems}
+
+\author{
+    Tanmaya Kumar\\
+    Behavioral Health Open Source (bh-healthcare.org)\\
+    \texttt{https://github.com/bh-healthcare/bh-audit-schema}
+}
+
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Behavioral health systems face audit logging challenges that general-purpose healthcare standards do not adequately address. Regulations such as 42 CFR Part 2 impose stricter confidentiality requirements for substance use disorder treatment records than standard HIPAA provisions, and mental health data carries elevated stigma risk if exposed through audit trails. Existing audit approaches tend to capture excessive protected health information (PHI) in log entries or lack the structure needed for meaningful compliance analysis. This paper presents BH Audit Schema, an open-source, versioned JSON Schema standard for behavioral health audit events. The contribution is the specific combination: a domain-specific audit contract that is machine-validatable, PHI-minimizing by construction, and explicitly mapped to HIPAA Security Rule, 42 CFR Part 2, and SOC 2 control objectives. The schema records the actions that occurred and the resource types they acted on, and it does so without logging any underlying clinical content. This paper describes the schema's design principles, threat model, specification, regulatory control mappings, and reference implementation deployed in a production behavioral health platform. The standard, tooling, and documentation are publicly available under the Apache 2.0 license at \url{https://github.com/bh-healthcare/bh-audit-schema}.
+\end{abstract}
+
+\noindent\textbf{Keywords:} audit logging, behavioral health, HIPAA, PHI, 42 CFR Part 2, JSON Schema, compliance, open source
+
+\section{Introduction}
+
+Behavioral health data is among the most sensitive categories of protected health information. Therapy notes contain deeply personal disclosures. Substance use disorder records carry legal protections beyond standard HIPAA. Mental health diagnoses are associated with significant social stigma, and crisis intervention records have direct life-safety implications. A breach or unauthorized access to this data can cause profound harm to patients, including damage to relationships, employment discrimination, and personal distress that may exacerbate the very conditions being treated.
+
+Behavioral health organizations face a fragmented landscape when implementing audit logging. Large healthcare systems can afford custom audit infrastructure, but many small and mid-sized behavioral health providers, who deliver a substantial share of community-based care, lack dedicated security engineering resources. Legacy systems have inconsistent or missing audit capabilities. Custom implementations create non-portable audit formats, and vendor diversity means no common audit event structure exists across tools.
+
+The result is a significant implementation gap. Organizations either fail to meet audit requirements or invest disproportionate resources reinventing audit logging for each system. The regulatory landscape continues to grow more complex at the same time, with HIPAA Security Rule requirements intersecting with the stricter 42 CFR Part 2 provisions governing substance use disorder records, state-specific mental health confidentiality laws, and contractual payer requirements.
+
+This paper presents BH Audit Schema, an open-source standard designed to address this gap. The contribution is the combination of four properties in one artifact: a behavioral-health-specific audit contract, machine-validatable through JSON Schema, PHI-minimizing by construction, and explicitly mapped to HIPAA Security Rule, 42 CFR Part 2, and SOC 2 control objectives. Each of these properties exists individually in other standards and tools, but their combination is what behavioral health organizations need and what has not previously been available as an open-source artifact.
+
+This paper is written for engineers and security practitioners building or evaluating healthcare infrastructure, particularly applied health informatics and systems teams working in behavioral health. Compliance, regulatory, and clinical informatics readers will find the control mappings and regulatory sections useful, but the primary lens is engineering: how to design audit logging that is simultaneously compliant, privacy-safe, and practical to adopt. The schema provides a versioned, machine-validatable contract for audit events that enforces PHI safety by default. It defines \textit{what} to log and leaves \textit{how} to implement logging as an adopter decision. The schema is accompanied by a Python reference implementation (bh-audit-logger), FastAPI middleware (bh-fastapi-audit), and documentation mapping schema fields to specific regulatory control objectives.
+
+The remainder of this paper is organized as follows. Section 2 surveys the regulatory background and related work. Section 3 presents the schema's design principles. Section 4 describes the threat model the schema defends against. Section 5 describes the schema specification. Section 6 maps the schema to regulatory control objectives. Section 7 discusses the reference implementation and limited production observations. Section 8 discusses limitations and future work, and Section 9 concludes.
+
+\section{Background and Related Work}
+
+\subsection{Regulatory Requirements for Behavioral Health Audit Logging}
+
+Organizations handling behavioral health data operate under multiple overlapping regulatory frameworks, each imposing audit trail requirements.
+
+The \textbf{HIPAA Security Rule} (\S164.312(b)) requires covered entities to ``implement hardware, software, and/or procedural mechanisms that record and examine activity in information systems that contain or use electronic protected health information (ePHI).'' Additional provisions address access controls (\S164.312(a)(1)), unique user identification (\S164.312(a)(2)(i)), information system activity review (\S164.308(a)(1)(ii)(D)), login monitoring (\S164.308(a)(5)(ii)(C)), and integrity controls (\S164.312(c)(1)).
+
+\textbf{42 CFR Part 2} governs the confidentiality of substance use disorder (SUD) patient records and imposes requirements substantially stricter than general HIPAA. Section 2.13(a) establishes the general rule that patient records may be used or disclosed only as permitted by the regulations, and Section 2.31 specifies the written consent form requirements that authorize most disclosures. Section 2.16 mandates formal policies and procedures to protect SUD record security. These provisions create a regulatory environment where audit trails for behavioral health systems must be more granular and more privacy-conscious than those required for general healthcare.
+
+\textbf{SOC 2 Trust Services Criteria} provide a framework for evaluating controls at service organizations, with criteria covering logical access (CC6.1), role-based access (CC6.3), system monitoring (CC7.2), and security event evaluation (CC7.3). Many behavioral health technology vendors undergo SOC 2 audits as a condition of payer contracts.
+
+\subsection{Existing Approaches}
+
+Several standards address audit logging in healthcare, though none specifically targets the behavioral health domain.
+
+The \textbf{IHE Audit Trail and Node Authentication (ATNA)} integration profile defines audit message formats based on RFC 3881 and DICOM, primarily targeting hospital information systems and imaging workflows. ATNA is comprehensive for its intended domain but does not address behavioral health-specific concerns such as 42 CFR Part 2 consent gating or the elevated PHI sensitivity of mental health records.
+
+\textbf{FHIR AuditEvent} (R4/R5) provides a resource type for recording audit information within the FHIR ecosystem. It offers a flexible, extensible structure but requires adopters to define their own constraints, field semantics, and PHI-safety policies. For small behavioral health organizations without FHIR expertise, this flexibility can become a barrier.
+
+\textbf{Cloud provider audit services} (AWS CloudTrail, Azure Activity Log, GCP Cloud Audit Logs) capture infrastructure-level events but lack clinical context. They record that an API call was made to a database but cannot distinguish a routine appointment lookup from access to a patient's substance use disorder treatment record.
+
+\textbf{General-purpose logging frameworks} (ELK Stack, Splunk, structured logging libraries) provide transport and storage but impose no schema constraints. Organizations using these tools must still define what constitutes an audit event, what fields are required, and how to prevent PHI from entering log entries.
+
+The BH Audit Schema sits between these approaches. It is domain-specific enough to encode behavioral health regulatory requirements, schema-validated enough to enforce consistency, and lightweight enough for small organizations to adopt without specialized infrastructure. Table~\ref{tab:comparison} summarizes how BH Audit Schema compares to existing approaches across the properties most relevant to behavioral health deployments.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of audit logging approaches across properties relevant to behavioral health deployments. \cmark\ indicates the property is native to the approach. \pmark\ indicates partial support that depends on adopter configuration. \xmark\ indicates the property is absent or explicitly out of scope.}
+\label{tab:comparison}
+\small
+\begin{tabularx}{\textwidth}{Xccccc}
+\toprule
+\textbf{Property} & \textbf{ATNA} & \textbf{FHIR AuditEvent} & \textbf{CloudTrail / infra} & \textbf{Generic logs} & \textbf{BH Audit} \\
+\midrule
+Behavioral-health-specific & \xmark & \xmark & \xmark & \xmark & \cmark \\
+PHI-minimizing by default & \xmark & \pmark & \xmark & \xmark & \cmark \\
+Schema validation & \cmark & \cmark & \xmark & \xmark & \cmark \\
+Clinical action semantics & \pmark & \cmark & \xmark & \xmark & \cmark \\
+Consent-gating support & \xmark & \pmark & \xmark & \xmark & \cmark \\
+Adoption path for non-FHIR orgs & \pmark & \xmark & \cmark & \cmark & \cmark \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Design Principles}
+
+The schema is governed by five design principles, each motivated by the operational realities of behavioral health technology.
+
+\subsection{PHI Safety by Default}
+
+The most important design decision is that audit events capture \textit{what happened} and \textit{to what}, without recording \textit{the content} of what was accessed. This principle manifests in several concrete rules:
+
+\begin{itemize}
+    \item \textbf{No bodies by default.} Events record resource types and identifiers (e.g., ``Note \texttt{note\_456} was accessed'') but never clinical text, diagnosis codes, or treatment details.
+    \item \textbf{Identifiers over identities.} The schema uses opaque identifiers (\texttt{user\_123}, \texttt{pat\_456}) rather than human-readable names, email addresses, or other directly identifying attributes.
+    \item \textbf{Templates over raw paths.} HTTP route information uses parameterized templates (\texttt{/patients/\{patient\_id\}/notes/\{note\_id\}}) rather than actual request paths that would embed identifiers.
+    \item \textbf{Sanitized error messages.} Error messages must not contain PHI, even in failure scenarios. ``Access denied'' is acceptable. ``User cannot access patient John Smith's note'' would violate this rule.
+    \item \textbf{Safe metadata.} The extensible \texttt{metadata} object is constrained to scalar values with a maximum of 20 properties, preventing nested structures that could harbor PHI.
+\end{itemize}
+
+This design ensures that audit logs do not become a secondary PHI repository. Log aggregation and analysis tools do not require PHI access, and breach scope is reduced if audit systems are compromised.
+
+\subsection{Strict Validation}
+
+The schema uses JSON Schema with \texttt{additionalProperties: false} at all levels (except the \texttt{metadata} object) to ensure events conform exactly to the specification. This prevents the gradual accumulation of unvalidated fields that, in practice, often become vectors for PHI leakage. Combined with required field constraints and enumerated value sets, strict validation makes schema compliance a binary, testable property.
+
+\subsection{Implementation Flexibility}
+
+The schema is strict about \textit{what} to log and deliberately silent about \textit{how}. Organizations can use any programming language, framework, or storage backend. They can implement synchronous or asynchronous logging, choose between relational databases, document stores, or log aggregation services, and integrate with existing SIEM infrastructure. This flexibility is essential for adoption in a domain where technology stacks vary widely.
+
+\subsection{Explicit Classification}
+
+The schema includes explicit classification fields so consumers do not have to infer whether an event involved sensitive data. The boolean \texttt{action.phi\_touched} flag indicates whether an action accessed or modified PHI, and \texttt{action.data\_classification} provides more granular categorization (\texttt{PHI}, \texttt{PII}, \texttt{NONE}, \texttt{UNKNOWN}). These fields are optional in the schema (\texttt{data\_classification} defaults to \texttt{UNKNOWN}) so that baseline adoption is not blocked, but compliance mappings assume adopters populate them for events touching regulated data. These fields enable risk-based handling of audit events without requiring consumers to maintain mappings of resource types to sensitivity levels.
+
+\subsection{Versioned Evolution}
+
+Every audit event includes a \texttt{schema\_version} field, and the schema follows semantic versioning. Version 1.x releases are backward-compatible additions. Breaking changes require a major version increment. Immutable version snapshots are maintained in the repository alongside the latest schema, supporting environments where audit records must be retained and validated over multi-year horizons.
+
+\section{Threat Model}
+
+The schema's design principles are grounded in a specific set of risks that audit logging can introduce into a healthcare system. Before describing the schema itself, this section makes those risks explicit so the design decisions can be evaluated against what they are intended to prevent.
+
+\textbf{Logs as a secondary PHI repository.} The most significant risk is that audit logs become a parallel store of clinical data. An engineer reviewing a log entry to debug a failed request should not be able to read clinical notes, diagnosis codes, or treatment details from that log entry. If logs contain PHI, every log aggregation system, every search index, every developer workstation that accesses logs becomes part of the compliance boundary. This inflates breach scope and complicates HIPAA and 42 CFR Part 2 obligations.
+
+\textbf{Leakage through request and response bodies.} A common antipattern is logging raw HTTP request bodies or response payloads to help with debugging. In a behavioral health context, this captures exactly the content that should not be in logs. The schema prohibits this category of data by defining no fields that accept clinical content and constraining extensible metadata to scalar values.
+
+\textbf{Leakage through raw URL paths and query strings.} Paths like \texttt{/patients/12345/notes/67890} embed patient and record identifiers that may be sensitive. More concerning are query strings that encode search terms, filter parameters, or free-text inputs. The schema's use of parameterized route templates (\texttt{/patients/\{patient\_id\}/notes/\{note\_id\}}) rather than raw request paths prevents this leakage pattern by construction.
+
+\textbf{Leakage through error messages.} Exception messages and error strings often concatenate PHI into human-readable text (``User cannot access patient Jane Doe's note dated 2024-11-03''). The schema enforces that error messages be sanitized, and the reference implementation provides helpers that generate compliant error descriptions.
+
+\textbf{Leakage through nested or free-form metadata.} Extensible metadata fields are necessary for domain-specific context but are also the most common place where PHI re-enters audit records. The schema constrains metadata to scalar key-value pairs with a bounded number of properties, preventing nested structures or large text blobs that could carry clinical content.
+
+\textbf{Inconsistent audit semantics across services.} When each service defines its own audit format, correlation and analysis become brittle. A security event affecting multiple services produces audit records with different field names, different value conventions, and different levels of detail. Investigators cannot construct a coherent timeline. The schema addresses this by providing a single contract that all services emit against, which turns cross-service audit analysis from a parsing problem into a query problem.
+
+\textbf{Threats outside scope.} The schema does not defend against compromise of the audit system itself, insider threats with direct database access, or malicious modification of audit records once they are stored. Integrity controls (event hashing, hash chaining) provide tamper-evidence but not tamper-prevention. Organizations must still protect the audit storage layer through access controls, retention policies, and monitoring appropriate to the sensitivity of their environment.
+
+\section{Schema Specification}
+
+The BH Audit Schema v1.1 defines a JSON object with seven required top-level sections and three optional sections. This section describes each component.
+
+\subsection{Event Envelope}
+
+Every event includes three envelope fields:
+
+\begin{itemize}
+    \item \texttt{schema\_version} (string, required): The schema version this event conforms to. Enables consumers to select the appropriate validation schema.
+    \item \texttt{event\_id} (string, UUID format, required): A globally unique identifier for the event. The v1.1 schema enforces UUID format to ensure uniqueness across distributed systems.
+    \item \texttt{timestamp} (string, date-time format, required): The time the event occurred, in ISO 8601 format.
+\end{itemize}
+
+\subsection{Service}
+
+The \texttt{service} object identifies the system that generated the event:
+
+\begin{itemize}
+    \item \texttt{service.name} (string, required): The name of the producing service (e.g., \texttt{bh-intake-api}).
+    \item \texttt{service.environment} (string, optional): The deployment environment (e.g., \texttt{prod}, \texttt{staging}).
+\end{itemize}
+
+\subsection{Actor}
+
+The \texttt{actor} object identifies who performed the action:
+
+\begin{itemize}
+    \item \texttt{actor.subject\_id} (string, minLength: 1, required): The unique identifier for the actor.
+    \item \texttt{actor.subject\_type} (enum: \texttt{human}, \texttt{service}, required): Distinguishes human users from automated service principals.
+    \item \texttt{actor.roles} (array of strings, optional): The roles held by the actor at the time of the action. Bounded with non-empty items in v1.1.
+    \item \texttt{actor.org\_id} (string, optional): The organization the actor belongs to.
+    \item \texttt{actor.owner\_org\_id} (string, optional, v1.1): The organization that owns the resource being accessed. Enables detection of cross-organization access in multi-tenant environments.
+\end{itemize}
+
+\subsection{Action}
+
+The \texttt{action} object describes what was done:
+
+\begin{itemize}
+    \item \texttt{action.type} (enum, required): The category of action. Enumerated values include \texttt{READ}, \texttt{CREATE}, \texttt{UPDATE}, \texttt{DELETE}, \texttt{EXPORT}, \texttt{LOGIN}, \texttt{LOGOUT}, \texttt{PRINT}, and \texttt{OTHER}.
+    \item \texttt{action.name} (string, optional): A more specific action identifier for domain-specific actions.
+    \item \texttt{action.phi\_touched} (boolean, optional): Whether the action accessed or modified protected health information.
+    \item \texttt{action.data\_classification} (enum, optional, default \texttt{UNKNOWN}): The sensitivity classification of the data involved (\texttt{PHI}, \texttt{PII}, \texttt{NONE}, \texttt{UNKNOWN}).
+\end{itemize}
+
+\subsection{Resource}
+
+The \texttt{resource} object identifies the target of the action:
+
+\begin{itemize}
+    \item \texttt{resource.type} (string, required): The category of resource (e.g., \texttt{Patient}, \texttt{Note}, \texttt{Encounter}).
+    \item \texttt{resource.id} (string, optional): The resource's unique identifier.
+    \item \texttt{resource.patient\_id} (string, optional): The patient associated with the resource, enabling patient-centric access review.
+\end{itemize}
+
+\subsection{Outcome}
+
+The \texttt{outcome} object records the result:
+
+\begin{itemize}
+    \item \texttt{outcome.status} (enum, required): \texttt{SUCCESS}, \texttt{FAILURE}, or \texttt{DENIED}. The v1.1 addition of \texttt{DENIED} distinguishes authorization-based access denials from operational failures, a critical distinction for compliance analysis.
+    \item \texttt{outcome.error\_type} (string, conditionally required): Required when status is \texttt{FAILURE} or \texttt{DENIED}. Categorizes the failure or denial reason (e.g., \texttt{RoleDenied}, \texttt{CrossOrgAccessDenied}, \texttt{ConsentRequired}).
+    \item \texttt{outcome.error\_message} (string, optional): A sanitized, PHI-free error description.
+\end{itemize}
+
+\subsection{Optional Sections}
+
+Three optional sections provide additional context:
+
+\begin{itemize}
+    \item \texttt{correlation}: Contains \texttt{request\_id}, \texttt{trace\_id}, and \texttt{session\_id} for distributed tracing across microservice architectures.
+    \item \texttt{http}: Captures HTTP-specific context including \texttt{method}, \texttt{route\_template}, \texttt{status\_code}, \texttt{client\_ip}, and \texttt{user\_agent}. The \texttt{client\_ip} field supports both IPv4 and IPv6 formats.
+    \item \texttt{integrity}: Supports tamper detection with \texttt{event\_hash}, \texttt{prev\_event\_hash} (for chain verification), and \texttt{hash\_alg} (constrained to \texttt{sha256}, \texttt{sha384}, or \texttt{sha512}).
+\end{itemize}
+
+\subsection{Example Event}
+
+Listing~\ref{lst:example} shows a minimal compliant event.
+
+\begin{lstlisting}[style=json, caption={A minimal BH Audit Schema v1.1 event recording a care coordinator reading a patient note.}, label=lst:example]
+{
+  "schema_version": "1.1",
+  "event_id": "6d3f0f6b-0c1a-4b9f-9d6f-9f6f7f5b2b0a",
+  "timestamp": "2026-01-06T18:40:12Z",
+  "service": {
+    "name": "bh-intake-api",
+    "environment": "prod"
+  },
+  "actor": {
+    "subject_id": "user_123",
+    "subject_type": "human",
+    "roles": ["care_coordinator"]
+  },
+  "action": {
+    "type": "READ",
+    "phi_touched": true,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "Note",
+    "id": "note_456",
+    "patient_id": "pat_789"
+  },
+  "outcome": {
+    "status": "SUCCESS"
+  }
+}
+\end{lstlisting}
+
+Note that the event captures the fact that a care coordinator read a clinical note belonging to a specific patient, without revealing any clinical content, the patient's name, or the care coordinator's identity beyond an opaque identifier.
+
+\section{Controls Mapping}
+
+One of the key contributions of this work is the explicit mapping between schema fields and regulatory control objectives. This section summarizes the mappings. The full mapping document is maintained in the project repository.
+
+\subsection{HIPAA Security Rule}
+
+Table~\ref{tab:hipaa} maps schema fields to the HIPAA Security Rule provisions most relevant to audit logging.
+
+\begin{table}[H]
+\centering
+\caption{Mapping of BH Audit Schema fields to HIPAA Security Rule provisions.}
+\label{tab:hipaa}
+\small
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{HIPAA Provision} & \textbf{Supporting Schema Fields} \\
+\midrule
+\S164.312(b) Audit Controls & \texttt{event\_id}, \texttt{timestamp}, \texttt{actor.subject\_id}, \texttt{action.type}, \texttt{resource.*}, \texttt{outcome.status}, \texttt{action.phi\_touched} \\
+\S164.312(a)(1) Access Control & \texttt{outcome.status: DENIED}, \texttt{outcome.error\_type}, \texttt{actor.roles}, \texttt{actor.org\_id}, \texttt{actor.owner\_org\_id} \\
+\S164.312(a)(2)(i) Unique User ID & \texttt{actor.subject\_id} (minLength: 1), \texttt{actor.subject\_type} \\
+\S164.308(a)(1)(ii)(D) Activity Review & \texttt{correlation.*}, \texttt{http.*}, \texttt{metadata} \\
+\S164.308(a)(5)(ii)(C) Login Monitoring & \texttt{action.type: LOGIN}, \texttt{outcome.status}, \texttt{outcome.error\_type}, \texttt{http.client\_ip} \\
+\S164.312(c)(1) Integrity & \texttt{integrity.event\_hash}, \texttt{integrity.prev\_event\_hash}, \texttt{integrity.hash\_alg} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{42 CFR Part 2}
+
+The schema provides specific support for 42 CFR Part 2 requirements through several mechanisms. The \texttt{action.data\_classification: PHI} flag identifies events touching regulated substance use disorder data. The \texttt{outcome.error\_type: ConsentRequired} value indicates access denials due to missing patient consent, directly supporting the Part 2 consent requirements under \S2.13 and \S2.31. The \texttt{actor.owner\_org\_id} field enables detection of cross-organization SUD record access attempts, and the scalar-only constraint on \texttt{metadata} prevents raw clinical content from entering audit logs.
+
+The schema provides the audit trail infrastructure for consent-gated access but does not model consent documents themselves. Consent tracking (consent identifiers, consent purpose, break-the-glass scenarios) is planned for a future schema version.
+
+\subsection{SOC 2 Trust Services Criteria}
+
+The schema maps to SOC 2 criteria including CC6.1 (logical access controls via the actor, action, resource, and outcome sections), CC6.3 (role-based access via \texttt{actor.roles} and role-denial tracking), CC7.2 (system monitoring via failure and denial pattern detection with correlation fields), and CC7.3 (security event evaluation via action categorization, PHI impact assessment, and incident correlation).
+
+\section{Reference Implementation and Deployment}
+
+\subsection{bh-audit-logger}
+
+The primary reference implementation is \texttt{bh-audit-logger}, a Python package available on PyPI. The package provides a cloud-agnostic audit event emitter with the following characteristics:
+
+\begin{itemize}
+    \item Structured event construction with compile-time type checking via Python dataclasses.
+    \item Built-in JSON Schema validation against the v1.1 schema.
+    \item Pluggable sink architecture supporting stdout, file, and DynamoDB backends.
+    \item Optional CLI interface for event generation and validation.
+    \item Zero required dependencies for the core library; optional extras for DynamoDB (\texttt{boto3}), JSON Schema validation (\texttt{jsonschema}), type checking (\texttt{mypy}), and development tooling.
+\end{itemize}
+
+\subsection{bh-fastapi-audit}
+
+A companion package, \texttt{bh-fastapi-audit}, provides FastAPI middleware that automatically emits audit events for HTTP requests. It demonstrates how to integrate audit logging into a web application framework, populating schema fields from HTTP context (method, route template, status code, client IP) and delegating PHI classification to application-layer configuration.
+
+\subsection{Limited Production Observations}
+
+This paper does not present BH Audit Schema as a telemetry study or adoption benchmark. The project is designed for privacy-sensitive behavioral health environments, where audit tooling must avoid becoming a secondary store of protected information. Optional telemetry is disabled by default in open-source usage and, when enabled, is intentionally limited to narrow operational signals such as event counts, validation outcomes, and runtime context metadata. The logger does not inspect underlying business payloads, request bodies, response bodies, or protected clinical detail beyond the schema-safe event envelope. This is a design feature, not a limitation. The goal is to establish a machine-validatable, PHI-minimizing audit contract, not to maximize observability depth.
+
+For this reason, the deployment figures reported below should be interpreted as limited production observations from internal use of the reference implementation. They demonstrate that the schema and middleware can be integrated into real services and can emit valid audit events reliably under live operating conditions. They do not constitute ecosystem-wide adoption data, a formal evaluation dataset, or evidence of comparative security performance.
+
+The schema and reference implementation are deployed in production at Overstory Health, a McLean Hospital-validated behavioral health platform serving over 100 patients across intake, clinical documentation, care coordination, patient communication, and treatment planning workflows. The deployment uses an AWS serverless architecture with Lambda functions emitting audit events to DynamoDB via the \texttt{bh-audit-logger} package. Events are validated against the v1.1 schema at emission time, which ensures that non-compliant events are rejected before storage.
+
+In the first four days of initial production rollout across two services, a patient intake API and a notification service spanning SMS, email, and scheduled communication handlers, the deployment emitted 75,501 audit events across 247 unique Lambda execution contexts. No schema validation failures were observed during this window. The intake service emitted 35 events across 4 deployment instances. The notification service, which handles all outbound patient communications, emitted 75,466 events across 243 deployment instances, reflecting the higher operational volume of the communication pathway relative to the intake pathway.
+
+An opt-in telemetry receiver aggregates emission metadata (event counts, deployment identifiers, service names) without collecting the audit event payloads themselves. This design preserves the PHI-safety properties of the schema while enabling deployment health monitoring. The telemetry pipeline also exposed one real-world operational signal during the initial rollout: a CloudWatch invocation alarm triggered when the notification service ramp exceeded 1,000 invocations within a 24-hour window, illustrating that realistic production volumes can exceed conservative baseline thresholds set during development.
+
+\section{Limitations and Future Work}
+
+Several limitations of the current work merit discussion.
+
+\textbf{Single-organization validation.} The schema has been deployed in production within a single organization, though it has been validated across multiple services with distinct operational characteristics and event volumes. Multi-organization adoption would provide stronger evidence of the schema's generalizability across different organizational structures, technology stacks, and regulatory jurisdictions. Because telemetry is privacy-constrained, opt-in, and disabled by default for open-source usage, the project does not currently provide broad adoption or performance data across external deployments.
+
+\textbf{Consent modeling.} The current schema supports consent-gated access denial tracking (\texttt{ConsentRequired} error type) but does not model consent documents themselves. A future version will introduce optional consent fields (consent identifier, consent purpose, break-the-glass justification) to support the full 42 CFR Part 2 consent lifecycle.
+
+\textbf{Analytics and alerting patterns.} The schema enables structured querying, but this paper does not present specific analytics queries or alerting rules for detecting anomalous access patterns. Reference query patterns are documented in the project repository, and a formal analysis of detection capabilities is planned for future work.
+
+\textbf{Performance characterization.} We do not present quantitative performance benchmarks for event emission, validation, or storage. In practice, the overhead of JSON Schema validation is negligible relative to the latency of the clinical operations being audited, but formal benchmarking would strengthen the implementation guidance.
+
+\textbf{Interoperability with FHIR AuditEvent.} A mapping between BH Audit Schema events and FHIR AuditEvent resources would enable organizations using FHIR-based systems to adopt the schema alongside their existing audit infrastructure. This mapping is planned but not yet implemented.
+
+\section{Conclusion}
+
+Behavioral health systems operate under regulatory requirements that demand structured, comprehensive audit logging and require heightened privacy protections for the data being audited at the same time. The BH Audit Schema addresses this tension through a design that enforces PHI safety by default, provides explicit mappings to HIPAA, 42 CFR Part 2, and SOC 2 control objectives, and maintains strict validation to prevent schema drift.
+
+Publishing the schema, reference implementations, and compliance documentation as open-source artifacts is intended to reduce the barrier to compliant audit logging for behavioral health organizations of all sizes. The schema is not a compliance solution in itself. It provides the engineering primitives that compliance programs require.
+
+The schema, documentation, reference implementations, and examples are available at \url{https://github.com/bh-healthcare/bh-audit-schema} under the Apache 2.0 license. The Python reference implementation is available on PyPI as \texttt{bh-audit-logger}.
+
+\section*{Acknowledgments}
+
+This work was developed independently by the author under the Behavioral Health Open Source organization. The schema has benefited from practical deployment experience at Overstory Health.
+
+\section*{Disclaimer}
+
+This paper and the associated schema provide engineering standards for audit event structure. They do not constitute legal advice, compliance certification, or guarantee of regulatory compliance. Organizations must conduct their own compliance assessments with qualified professionals.
+
+\begin{thebibliography}{99}
+
+\bibitem{hipaa_security}
+U.S. Department of Health and Human Services.
+\textit{HIPAA Security Rule}, 45 CFR Part 164, Subpart C.
+\url{https://www.hhs.gov/hipaa/for-professionals/security/}
+
+\bibitem{cfr42_part2}
+Substance Abuse and Mental Health Services Administration.
+\textit{42 CFR Part 2: Confidentiality of Substance Use Disorder Patient Records}.
+\url{https://www.ecfr.gov/current/title-42/chapter-I/subchapter-A/part-2}
+
+\bibitem{soc2}
+American Institute of CPAs.
+\textit{SOC 2 Trust Services Criteria}.
+\url{https://us.aicpa.org/interestareas/frc/assuranceadvisoryservices/trustservicescriteria}
+
+\bibitem{ihe_atna}
+IHE IT Infrastructure Technical Framework.
+\textit{Audit Trail and Node Authentication (ATNA)}.
+\url{https://profiles.ihe.net/ITI/TF/Volume1/ch-9.html}
+
+\bibitem{fhir_audit}
+HL7 FHIR.
+\textit{AuditEvent Resource (R4)}.
+\url{https://www.hl7.org/fhir/auditevent.html}
+
+\bibitem{json_schema}
+Wright, A., Andrews, H., Hutton, B.
+\textit{JSON Schema: A Media Type for Describing JSON Documents}.
+Internet Engineering Task Force, 2022.
+\url{https://json-schema.org/specification}
+
+\bibitem{samhsa_privacy}
+Substance Abuse and Mental Health Services Administration.
+\textit{Confidentiality of Patient Records for Alcohol and Other Drug Treatment}.
+Technical Assistance Publication (TAP) Series 13. SAMHSA, 2020.
+
+\bibitem{mental_health_stigma}
+Corrigan, P.W., Druss, B.G., Perlick, D.A.
+``The Impact of Mental Illness Stigma on Seeking and Participating in Mental Health Care.''
+\textit{Psychological Science in the Public Interest}, 15(2):37--70, 2014.
+
+\bibitem{health_it_small_orgs}
+Kruse, C.S., Kristof, C., Jones, B., Mitchell, E., Martinez, A.
+``Barriers to Electronic Health Record Adoption: A Systematic Literature Review.''
+\textit{Journal of Medical Systems}, 40:252, 2016.
+
+\bibitem{audit_log_challenges}
+Rindfleisch, T.C.
+``Privacy, Information Technology, and Health Care.''
+\textit{Communications of the ACM}, 40(8):92--100, 1997.
+
+\end{thebibliography}
+
+\end{document}
