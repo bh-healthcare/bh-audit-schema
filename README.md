@@ -106,3 +106,5 @@ See [docs/versioning.md](docs/versioning.md) for details.
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
+
+**Exception:** the [`papers/`](papers/) directory contains research writing licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) rather than Apache 2.0. See [`papers/README.md`](papers/README.md) for details.
