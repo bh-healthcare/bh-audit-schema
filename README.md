@@ -26,7 +26,8 @@ This repository defines a standardized schema for audit events in behavioral hea
 
 | Path | Description |
 |------|-------------|
-| [`schema/audit_event.schema.json`](schema/audit_event.schema.json) | Latest stable schema |
+| [`schema/audit_event.schema.json`](schema/audit_event.schema.json) | Latest stable schema (currently **v1.1.2**) |
+| [`schema/versions/1.1/`](schema/versions/1.1/) | Immutable v1.1.x schema (latest: 1.1.2) |
 | [`schema/versions/1.0/`](schema/versions/1.0/) | Immutable v1.0 schema |
 
 ### Example Event
@@ -67,6 +68,15 @@ Audit events capture **what happened**, not **the content** of what was accessed
 ### Strict Validation
 
 The schema uses `additionalProperties: false` at all levels (except `metadata`) to ensure events conform exactly to the specification.
+
+### Single Source of Truth for Enums
+
+As of **v1.1.2**, the canonical enum types — `ActionType`, `OutcomeStatus`, and
+`DataClassification` — live as named definitions under `$defs` and are referenced
+via `$ref` from `action.type`, `outcome.status`, and `action.data_classification`.
+The accepted values are unchanged. This lets downstream consumers
+(`bh-fastapi-audit`, `bh-audit-logger`, custom validators) derive their allowlists
+from a single, machine-readable source instead of duplicating the enum arrays.
 
 ### Implementation Flexibility
 

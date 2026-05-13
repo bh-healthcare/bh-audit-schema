@@ -100,6 +100,10 @@ Describes what action was performed.
 
 ### `action.type` Enum
 
+Defined in `$defs/ActionType` and referenced via `$ref: "#/$defs/ActionType"`.
+Downstream consumers can derive type-safe allowlists from the single source of
+truth in `$defs`.
+
 | Value    | Use Case                                              |
 |----------|-------------------------------------------------------|
 | `READ`   | Retrieving or viewing data                            |
@@ -115,7 +119,7 @@ Describes what action was performed.
 ### `phi_touched` and `data_classification`
 
 - **`phi_touched`**: Boolean flag indicating whether the action actually accessed or modified Protected Health Information under HIPAA/42 CFR Part 2.
-- **`data_classification`**: Classification of what the *resource contains*, regardless of whether it was actually accessed.
+- **`data_classification`**: Classification of what the *resource contains*, regardless of whether it was actually accessed. Defined in `$defs/DataClassification` and referenced via `$ref: "#/$defs/DataClassification"`.
 
 **On DENIED events:** Set `phi_touched: false` because PHI was not actually accessed (the request was blocked). Set `data_classification` to reflect what the resource contains (e.g., `"PHI"`), not what the actor saw. This distinction matters for compliance: the resource is PHI, but no PHI was disclosed.
 
@@ -182,6 +186,9 @@ Describes the result of the action.
 | `error_message` | string | Conditional | maxLength: 500           | Sanitized error message                           |
 
 ### Status Values (v1.1)
+
+`outcome.status` is defined in `$defs/OutcomeStatus` and referenced via
+`$ref: "#/$defs/OutcomeStatus"`.
 
 | Status    | Meaning                                        | `error_type`    | `error_message` |
 |-----------|------------------------------------------------|-----------------|-----------------|

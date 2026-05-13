@@ -5,6 +5,15 @@ All notable changes to the bh-audit-schema project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-05-12
+
+### Changed
+
+- Refactored `ActionType`, `OutcomeStatus`, and `DataClassification` from inline
+  `enum` arrays into named `$defs` with `$ref` usage. Enum values are identical.
+  Enables downstream consumers to derive allowlists from a single source of truth.
+  Closes bh-healthcare/bh-audit-schema#5.
+
 ## [1.1.1] - 2026-03-11
 
 ### Added
@@ -65,6 +74,7 @@ See [docs/controls-mapping.md](docs/controls-mapping.md) for detailed HIPAA Secu
 - Documentation: field definitions, event types, privacy model, controls mapping, query examples, rationale, versioning.
 - Examples: patient read, login, note update failure, patient data export.
 
+[1.1.2]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/bh-healthcare/bh-audit-schema/releases/tag/v1.0.0

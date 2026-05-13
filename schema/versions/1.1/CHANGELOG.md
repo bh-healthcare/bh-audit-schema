@@ -6,6 +6,15 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ---
 
+## [1.1.2] -- 2026-05-12
+
+### Changed
+
+- `action.type`, `outcome.status`, and `action.data_classification` enums extracted
+  into named `$defs` (`ActionType`, `OutcomeStatus`, `DataClassification`) and
+  referenced via `$ref`. Enum values are unchanged; this is a structural refactor
+  to enable downstream consumers to derive allowlists from a single source of truth.
+
 ## [1.1.0] -- 2026-03-11
 
 ### Added
