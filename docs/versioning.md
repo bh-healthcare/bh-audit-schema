@@ -137,7 +137,8 @@ Schema changes follow this process:
 
 | Version | Release Date | Status       | Notes                                                        |
 |---------|--------------|--------------|--------------------------------------------------------------|
-| 1.1     | 2026-03-11   | Current      | Hardening: UUID enforcement, DENIED status, metadata scalars |
+| 1.1.2   | 2026-05-12   | Current      | Enum `$defs` refactor (structural, no value changes)         |
+| 1.1     | 2026-03-11   | Supported    | Hardening: UUID enforcement, DENIED status, metadata scalars |
 | 1.0     | 2026-01-06   | Supported    | Initial release                                              |
 
 ---
