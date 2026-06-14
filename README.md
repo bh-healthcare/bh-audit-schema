@@ -56,7 +56,7 @@ Producers in agent-free environments adopt v2.0 by updating `schema_version` to 
 
 - **RFC**: [`docs/rfc/RFC-0001-agent-attribution-github.md`](docs/rfc/RFC-0001-agent-attribution-github.md)
 - **FHIR R5 alignment**: [`docs/fhir/fhir-r5-gap-analysis-and-profile.md`](docs/fhir/fhir-r5-gap-analysis-and-profile.md) and the [`scripts/translate_to_fhir.py`](scripts/translate_to_fhir.py) translator
-- **Examples**: [`examples/2.0/`](examples/2.0/) (5 positive, 13 negative)
+- **Examples**: [`examples/2.0/`](examples/2.0/) (7 positive -- 5 core attribution scenarios plus 2 session-lifecycle convention examples -- and 13 negative)
 
 ## Documentation
 

@@ -20,7 +20,7 @@ This document does two things: identifies what R5 AuditEvent cannot express for 
 |---|---|---|---|
 | G1 | No attribution-role semantics | `agent` is 1..* and `agent.type` describes "how agent participated," but no standard vocabulary distinguishes the authenticating identity (whose credentials were presented), the acting identity (what performed the action), and the authorizing identity (whose intent it represents) | Profile: required `agent.type` codes + slicing |
 | G2 | `requestor` cannot carry the split | A single boolean per agent marks the initiator. When a human authorized work and an agent performed it under that human's credentials, "the requestor" is ambiguous by construction; the element predates delegated non-human actors | Profile: fixed `requestor` values per attribution slice |
-| G3 | No delegation element | `Provenance.agent.onBehalfOf` expresses delegation for resource generation; `AuditEvent.agent` has no counterpart for usage auditing | Profile slicing makes the relationship explicit via paired agent slices; no new element needed once G1 is closed |
+| G3 | No first-class delegation element; the published `AuditEvent.agent.onBehalfOf` extension is a single delegation hop and does not carry the authenticating-vs-authorizing split, supervision state, session linkage, sub-agent chains, or agent descriptor | HL7 already publishes [`AuditEvent.agent.onBehalfOf`](https://hl7.org/fhir/extensions/StructureDefinition-event-onBehalfOf.html) in the FHIR extensions registry, which confirms the community recognizes delegation as a real gap in base R5 AuditEvent. That extension is a building block: it expresses a single "who acted for whom" link. This profile is the attribution layer built on top of it -- three-way slicing (authenticating / acting / authorizing), supervision state, session and chain linkage, agent descriptor, and validation that makes an unattributed agent action invalid by construction | Profile slicing + bounded extensions (G4-G6); the published `onBehalfOf` extension is compatible but insufficient |
 | G4 | No supervision state | Nothing expresses whether a human was actively observing (supervised), absent (autonomous), or never present (scheduled) at the time of the action -- the first question a compliance reviewer asks about an agent action | Extension: `delegation-type` |
 | G5 | No agent session or chain linkage | No convention ties an agent's actions to a reviewable session, and nothing models sub-agent chains (an agent spawning agents) | Extensions: `agent-session-id`, `chain-depth`, `parent-agent-session-id` |
 | G6 | No agent descriptor constraints | `agent.who` can reference a Device, so an AI agent is *representable*, but nothing requires recording which model, version, harness, or interaction surface acted. An attribution record that cannot say which agent acted is weak evidence | Complex extension: `agent-descriptor` (interface required) |
@@ -29,6 +29,15 @@ This document does two things: identifies what R5 AuditEvent cannot express for 
 | G9 | No validation requiring attribution completeness | Nothing makes an agent-performed event invalid when the authorizing human is missing | Profile invariant: acting slice present implies authorizing slice present |
 
 What is deliberately *not* claimed as a gap: multi-agent structure (exists), AI actors as references (Device works), patient linkage (R5 added a first-class `patient` element, which this profile uses), or purpose-of-use (R5 `authorization` covers it). The profile builds on these rather than duplicating them.
+
+### 2.1 Prior art and positioning
+
+Two prior efforts in this space inform the profile's design:
+
+- **HL7 `AuditEvent.agent.onBehalfOf` extension** (R5 extensions registry). Expresses a single delegation hop on `AuditEvent.agent`. The community shipping this extension is direct evidence that delegation is a recognized gap in base AuditEvent. The profile is compatible with `onBehalfOf` but does not rely on it alone: `onBehalfOf` collapses the authenticating-vs-authorizing distinction, which is exactly the split that matters in the agent-under-its-own-credential case (`actor.subject_type == "agent"` in the source schema). The three-slice design is what makes that split queryable.
+- **IHE Basic Audit Log Patterns (BALP)**. The IHE AuditEvent profiling stream defines complementary `AuditEvent.agent` extensions (e.g., assurance level). The attribution profile here is orthogonal to BALP -- BALP refines participation properties, this profile refines participation *semantics* for agent-mediated action -- and the two can be applied to the same AuditEvent without conflict.
+
+The profile's contribution is not a competing standard. It is the attribution layer that the existing `onBehalfOf` extension and the BALP slicing patterns can be composed with.
 
 ## 3. The profile in one view
 
@@ -98,7 +107,7 @@ Everything else maps to native elements. That ratio -- five extensions, the rest
 
 ## 6. Working translator
 
-A prototype translator (Python, ~200 lines) converts bh-audit-schema v2.0 events to R5 AuditEvent resources and validates output against the R5 structure definitions. Current status against the v2.0 example corpus:
+A translator (Python, ~200 lines, [`scripts/translate_to_fhir.py`](../../scripts/translate_to_fhir.py)) converts bh-audit-schema v2.0 events to R5 AuditEvent resources and validates output against the R5 structure definitions. Current status against the v2.0 example corpus (7 positive = 5 core attribution scenarios + 2 RFC §7.2 session-lifecycle convention examples):
 
 | Input event | Result | Agents |
 |---|---|---|
@@ -107,6 +116,8 @@ A prototype translator (Python, ~200 lines) converts bh-audit-schema v2.0 events
 | Human override of an agent session | valid R5 | 1 |
 | Depth-2 sub-agent export | valid R5 | 3 |
 | Direct human read (collapse case) | valid R5 | 1 |
+| Agent session start (CREATE on AgentSession) | valid R5 | 3 |
+| Agent session end (UPDATE, `action.name: agent_session_end`) | valid R5 | 3 |
 
 Structural validation only at this stage; terminology binding validation arrives with the published CodeSystems. The full translator (bidirectional where lossless, documented loss where not) is the build deliverable.
 

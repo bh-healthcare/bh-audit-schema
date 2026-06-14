@@ -18,10 +18,17 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install "jsonschema[format]" pytest
+        # fhir.resources is included so the R5 AuditEvent validation tests in
+        # tests/test_v2_translator.py actually run in CI (rather than being
+        # skipped). The green check then demonstrates R5 validity, not just
+        # structural translation.
+        run: pip install "jsonschema[format]" pytest "fhir.resources>=8.0.0"
 
       - name: Validate examples against schema (positive + negative corpora)
         run: python scripts/validate_examples.py
+
+      - name: Translate v2.0 examples to FHIR R5 AuditEvent (validates R5 structure)
+        run: python scripts/translate_to_fhir.py
 
       - name: Run test suite
         run: pytest tests/ -v
