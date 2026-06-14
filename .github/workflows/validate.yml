@@ -17,8 +17,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install jsonschema with format validation
-        run: pip install "jsonschema[format]"
+      - name: Install dependencies
+        run: pip install "jsonschema[format]" pytest
 
-      - name: Validate examples against schema
+      - name: Validate examples against schema (positive + negative corpora)
         run: python scripts/validate_examples.py
+
+      - name: Run test suite
+        run: pytest tests/ -v

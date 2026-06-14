@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bh-healthcare.github.io/bh-audit-schema/2.0/audit_event.schema.json",
+  "title": "BH Audit Event",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "ActionType": {
+      "type": "string",
+      "enum": ["READ", "CREATE", "UPDATE", "DELETE", "EXPORT", "LOGIN", "LOGOUT", "PRINT", "OVERRIDE", "OTHER"],
+      "description": "Canonical action taxonomy for BH audit events. OVERRIDE records a human interrupting, cancelling, or reversing an agent action or session."
+    },
+    "OutcomeStatus": {
+      "type": "string",
+      "enum": ["SUCCESS", "FAILURE", "DENIED"],
+      "description": "Terminal outcome classification for an audited action."
+    },
+    "DataClassification": {
+      "type": "string",
+      "enum": ["PHI", "PII", "NONE", "UNKNOWN"],
+      "description": "Regulatory classification of the data touched by the action."
+    },
+    "SubjectType": {
+      "type": "string",
+      "enum": ["human", "service", "agent"],
+      "description": "Identity class. 'human': an authenticated human user. 'service': deterministic code under its own service identity. 'agent': a non-deterministic AI actor operating under delegated human authority."
+    },
+    "DelegationType": {
+      "type": "string",
+      "enum": ["supervised", "autonomous", "scheduled"],
+      "description": "Human-oversight state at the time of an agent action. 'supervised': human actively observing, can intervene in real time. 'autonomous': agent acts without real-time human observation. 'scheduled': agent launched by a timer or trigger with no human present at execution."
+    },
+    "AgentInterface": {
+      "type": "string",
+      "enum": ["ui_driving", "api", "mcp", "cli", "sdk"],
+      "description": "Interaction surface used by the agent. Determines risk class and available enforcement points."
+    }
+  },
+  "required": [
+    "schema_version",
+    "event_id",
+    "timestamp",
+    "service",
+    "actor",
+    "action",
+    "resource",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0",
+      "description": "Schema version for this audit event."
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "description": "Globally unique UUID identifier for this audit event."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp when the audited action occurred."
+    },
+
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "environment": { "type": "string", "maxLength": 64, "description": "prod|staging|dev etc." },
+        "version": { "type": "string", "maxLength": 64, "description": "Service version/build identifier." }
+      }
+    },
+
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "request_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "trace_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+      },
+      "description": "Identifiers used to correlate events across services. At least one ID required if present."
+    },
+
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_id", "subject_type"],
+      "properties": {
+        "subject_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "subject_type": {
+          "$ref": "#/$defs/SubjectType",
+          "description": "v2.0 actor is the authenticating identity: the identity whose credentials were presented to the target system."
+        },
+        "org_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "owner_org_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Organization that owns the resource being accessed. Enables cross-org access detection."
+        },
+        "roles": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "maxItems": 25,
+          "description": "Optional roles at time of access."
+        }
+      }
+    },
+
+    "delegation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acting", "authorizing", "delegation_type", "agent_session_id"],
+      "properties": {
+        "acting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["subject_id", "subject_type", "agent"],
+          "properties": {
+            "subject_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "subject_type": {
+              "type": "string",
+              "const": "agent",
+              "description": "Acting identity is always an agent in v2.0; human-proxy delegation is deferred to a future version."
+            },
+            "agent": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["interface"],
+              "properties": {
+                "interface": { "$ref": "#/$defs/AgentInterface" },
+                "vendor": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "model_family": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "model_version": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "harness": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "harness_version": { "type": "string", "minLength": 1, "maxLength": 128 }
+              },
+              "description": "Agent descriptor. No field may carry free-text prompt or configuration content."
+            }
+          }
+        },
+        "authorizing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["subject_id", "subject_type"],
+          "properties": {
+            "subject_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "subject_type": {
+              "type": "string",
+              "const": "human",
+              "description": "Authorizing identity is always a human. An agent cannot authorize. For sub-agent chains this is always the root human."
+            },
+            "org_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+          }
+        },
+        "delegation_type": { "$ref": "#/$defs/DelegationType" },
+        "agent_session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Correlates every action to its session lifecycle events."
+        },
+        "chain_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32,
+          "description": "Depth 1 is an agent delegated directly by the authorizing human; depth 2 is a sub-agent spawned by a depth-1 agent."
+        },
+        "parent_agent_session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Session ID of the parent agent for sub-agent chains. Present iff chain_depth >= 2."
+        }
+      },
+      "description": "Optional top-level object. Its presence asserts the action was agent-mediated; its absence on a v2.0 event asserts a direct, non-delegated action."
+    },
+
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "$ref": "#/$defs/ActionType" },
+        "name": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Optional specific action name (e.g., 'verify_insurance', 'sign_bps', 'agent_session_end')."
+        },
+        "phi_touched": {
+          "type": "boolean",
+          "description": "True if the action touches regulated PHI (behavioral health context)."
+        },
+        "data_classification": {
+          "$ref": "#/$defs/DataClassification",
+          "default": "UNKNOWN"
+        }
+      }
+    },
+
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1, "maxLength": 128, "description": "E.g., Patient, Note, Encounter, Appointment, Program, AgentSession." },
+        "id": { "type": "string", "minLength": 1, "maxLength": 256, "description": "Resource identifier if applicable." },
+        "patient_id": { "type": "string", "minLength": 1, "maxLength": 256, "description": "Patient identifier if applicable. Recommended for PHI-touching actions." }
+      }
+    },
+
+    "http": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+        },
+        "route_template": { "type": "string", "maxLength": 512, "description": "Template path, not raw path (e.g., /patients/{patient_id}/notes/{note_id})." },
+        "status_code": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "client_ip": {
+          "type": "string",
+          "anyOf": [
+            { "format": "ipv4" },
+            { "format": "ipv6" }
+          ],
+          "description": "Client IP address (IPv4 or IPv6)."
+        },
+        "user_agent": { "type": "string", "maxLength": 512 }
+      }
+    },
+
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "$ref": "#/$defs/OutcomeStatus" },
+        "error_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "error_message": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Sanitized error message. Must not contain PHI."
+        }
+      },
+      "description": "DENIED indicates the system correctly refused access (not an error). FAILURE indicates an operational error. Both FAILURE and DENIED require error_type. error_message is optional on DENIED."
+    },
+
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "event_hash": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "prev_event_hash": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "hash_alg": {
+          "type": "string",
+          "enum": ["sha256", "sha384", "sha512"],
+          "description": "Hash algorithm used for tamper-evident chaining."
+        }
+      },
+      "dependentRequired": {
+        "event_hash": ["hash_alg"],
+        "prev_event_hash": ["hash_alg", "event_hash"]
+      },
+      "description": "Optional tamper-evident chaining fields."
+    },
+
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "integer", "number", "boolean", "null"]
+      },
+      "maxProperties": 20,
+      "description": "Optional safe metadata. Values must be scalar (no nested objects or arrays). Must not include raw PHI. Prompts, model outputs, screenshots, and reasoning traces are forbidden by structure: store such artifacts in a separately access-controlled store and reference them via an opaque identifier."
+    }
+  },
+
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": { "status": { "const": "FAILURE" } },
+            "required": ["status"]
+          }
+        },
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "required": ["status", "error_type", "error_message"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": { "status": { "const": "DENIED" } },
+            "required": ["status"]
+          }
+        },
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "required": ["status", "error_type"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "actor": {
+            "properties": { "subject_type": { "const": "agent" } },
+            "required": ["subject_type"]
+          }
+        },
+        "required": ["actor"]
+      },
+      "then": {
+        "required": ["delegation"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "delegation": {
+            "properties": { "chain_depth": { "type": "integer", "minimum": 2 } },
+            "required": ["chain_depth"]
+          }
+        },
+        "required": ["delegation"]
+      },
+      "then": {
+        "properties": {
+          "delegation": {
+            "required": ["parent_agent_session_id"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "delegation": {
+            "required": ["parent_agent_session_id"]
+          }
+        },
+        "required": ["delegation"]
+      },
+      "then": {
+        "properties": {
+          "delegation": {
+            "required": ["chain_depth"],
+            "properties": {
+              "chain_depth": { "type": "integer", "minimum": 2 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "properties": { "type": { "const": "OVERRIDE" } },
+            "required": ["type"]
+          }
+        },
+        "required": ["action"]
+      },
+      "then": {
+        "required": ["actor", "resource"],
+        "properties": {
+          "actor": {
+            "properties": { "subject_type": { "const": "human" } },
+            "required": ["subject_type"]
+          },
+          "resource": {
+            "required": ["type", "id"],
+            "properties": { "type": { "const": "AgentSession" } }
+          }
+        },
+        "not": { "required": ["delegation"] }
+      }
+    }
+  ]
+}

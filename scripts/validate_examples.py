@@ -2,6 +2,10 @@
 """
 Validate all example JSON files against their corresponding schema version.
 
+Top-level files under examples/<version>/ must VALIDATE.
+Files under examples/<version>/negative/ must FAIL validation (each one is
+the minimal counter-example for a specific schema rule).
+
 Usage:
     pip install jsonschema
     python scripts/validate_examples.py
@@ -59,6 +63,26 @@ def main() -> int:
                 failed += 1
                 errors.append(f"{version}/{example_path.name}: {exc.message}")
                 print(f"  FAIL  {version}/{example_path.name}: {exc.message}")
+
+        negative_dir = version_dir / "negative"
+        if negative_dir.is_dir():
+            for example_path in sorted(negative_dir.glob("*.json")):
+                example = load_json(example_path)
+                try:
+                    jsonschema.validate(
+                        instance=example,
+                        schema=schema,
+                        format_checker=jsonschema.FormatChecker(),
+                    )
+                    failed += 1
+                    msg = (f"{version}/negative/{example_path.name}: "
+                           f"expected to fail but validated")
+                    errors.append(msg)
+                    print(f"  UNEXPECTED-PASS  {version}/negative/{example_path.name}")
+                except jsonschema.ValidationError:
+                    passed += 1
+                    print(f"  REJECTED (as expected)  "
+                          f"{version}/negative/{example_path.name}")
 
     print(f"\n{passed} passed, {failed} failed")
     if errors:

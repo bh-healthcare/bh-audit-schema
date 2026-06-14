@@ -219,3 +219,6 @@ __marimo__/
 *.out
 *.synctex.gz
 *.toc
+
+# macOS Finder metadata files
+.DS_Store
