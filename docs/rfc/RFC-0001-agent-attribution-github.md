@@ -305,16 +305,18 @@ Migration notes:
 
 ## 15. Validation Suite
 
-The draft schema was exercised against a positive corpus, a negative corpus, and adversarial probes. All behave as specified.
+The draft schema was exercised against a positive corpus and a negative corpus that combines minimal counter-examples and adversarial probes. Every case is committed and runnable under `pytest tests/` and `python scripts/validate_examples.py`.
 
 | Suite | Cases | Result |
 |---|---|---|
-| Positive examples (must validate) | 5 | 5 pass |
-| Negative cases (must fail) | 13 | 13 fail |
-| Adversarial probes | 8 | 8 as specified |
-| FHIR R5 translation (must produce valid AuditEvent) | 5 | 5 valid |
+| Positive examples (must validate) | 7 | 7 pass |
+| Negative cases (must fail, includes adversarial probes) | 13 | 13 fail |
+| FHIR R5 translation (must produce valid AuditEvent) | 7 | 7 valid |
 
-Positive corpus: agent MCP read, agent UI-driving write, human override, depth-2 sub-agent export, human-direct read.
+Positive corpus -- 5 core attribution scenarios plus 2 RFC §7.2 session-lifecycle convention examples:
+
+- Core: agent MCP read, agent UI-driving write, human override, depth-2 sub-agent export, human-direct read.
+- Session lifecycle: agent session start (`CREATE` on `AgentSession`), agent session end (`UPDATE` with `action.name: agent_session_end`).
 
 Notable findings carried into the spec:
 

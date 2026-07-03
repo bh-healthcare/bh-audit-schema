@@ -5,6 +5,44 @@ All notable changes to the bh-audit-schema project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-06-14
+
+Major version introducing AI agent attribution and the human-agent delegation chain. Designed per [RFC 0001](docs/rfc/RFC-0001-agent-attribution-github.md) and additive with respect to v1.1: every valid v1.1 event becomes a valid v2.0 event by updating `schema_version`.
+
+Status: published under `schema/versions/2.0/`. The root pointer (`schema/audit_event.schema.json`) remains at v1.1.2 until the RFC's 14-day discussion period closes and the version is promoted. v1.x continues to be supported per the 6-month policy.
+
+### Added
+
+- **`delegation` object** (optional top-level) -- the audit-record expression of the three-role attribution model. Carries `acting` (the agent that performed the action), `authorizing` (the human whose intent the action represents), `delegation_type`, `agent_session_id`, and optional `chain_depth` / `parent_agent_session_id` for sub-agent chains. Its presence asserts the action was agent-mediated; its absence on a v2.0 event asserts a direct, non-delegated action.
+- **`OVERRIDE` action type** -- records a human interrupting, cancelling, or reversing an agent action or session. v2.0 scopes override to humans; agent-initiated halts of sub-agents are deferred.
+- **New named `$defs`**: `SubjectType` (`human`, `service`, `agent`), `DelegationType` (`supervised`, `autonomous`, `scheduled`), `AgentInterface` (`ui_driving`, `api`, `mcp`, `cli`, `sdk`).
+- **Conditional validation** (RFC §6) -- three new rules added to `allOf`:
+  1. `actor.subject_type == "agent"` requires `delegation`.
+  2. Within `delegation`, `chain_depth >= 2` and `parent_agent_session_id` are bidirectionally paired (each implies the other).
+  3. `action.type == "OVERRIDE"` requires `actor.subject_type == "human"`, `resource.type == "AgentSession"` with `resource.id`, and forbids `delegation`.
+- **v2.0 example corpus** -- 7 positive examples (5 core attribution scenarios -- `agent_mcp_patient_read`, `agent_ui_driving_note_write`, `human_override_agent_session`, `sub_agent_depth2_export`, `human_direct_read` -- plus 2 RFC §7.2 session-lifecycle convention examples -- `agent_session_start`, `agent_session_end`) and 13 negative examples under `examples/2.0/negative/`, each the minimal counter-example (and adversarial probe) for one schema rule.
+- **FHIR R5 AuditEvent translator** -- `scripts/translate_to_fhir.py` produces a valid R5 AuditEvent for every v2.0 event, with three attribution-typed agent slices (authenticating / acting / authorizing) for delegated events and a single direct agent for collapse and override cases. Maps `http.client_ip` to `agent.network[x]` (`networkString`) on the authenticating/direct slice per FHIR companion §5. Optional R5 structural validation via `fhir.resources`.
+- **FHIR gap analysis and profile** -- [`docs/fhir/fhir-r5-gap-analysis-and-profile.md`](docs/fhir/fhir-r5-gap-analysis-and-profile.md) documents nine gaps (G1-G9) in R5 AuditEvent that v2.0 closes via slicing, profile invariants, and a bounded extension set covering only G4-G6. Includes a §2.1 prior-art positioning section that acknowledges HL7's published `AuditEvent.agent.onBehalfOf` extension as a single-hop building block and IHE Basic Audit Log Patterns (BALP) as complementary -- this profile is the attribution-semantics layer built on top of both.
+- **FHIR docs pointer page** -- [`docs/fhir/README.md`](docs/fhir/README.md) summarizes the gap analysis, translator usage, and the mapping-loss register.
+- **Test suite** -- `tests/test_v2_defs_structure.py`, `test_v2_positive_examples.py`, `test_v2_negative_examples.py`, `test_v2_conditional_validation.py` (including the §6.1 unsatisfiable-OVERRIDE-by-agent interaction), `test_v2_translator.py`, and `test_v2_backward_compat.py` (parameterized v1.1→v2.0 migration regression test plus `subject_type: "service"` coverage).
+- **Validation script** -- `scripts/validate_examples.py` extended to also run `examples/<version>/negative/` and require every file there to FAIL validation; an unexpected pass is a test failure.
+- **Controls-mapping deltas** -- [`docs/controls-mapping.md`](docs/controls-mapping.md) appended with a "v2.0 deltas" section covering HIPAA §164.312(b)/(d), 42 CFR Part 2 §2.13/§2.16, SOC 2 CC6.1/CC7.2, NIST AI RMF, and ISO/IEC 42001 §8.3, plus a v2-specific implementer checklist.
+- **CI workflow** -- [`.github/workflows/validate.yml`](.github/workflows/validate.yml) installs `fhir.resources>=8.0.0` and `pytest`, runs the full test suite, and executes `scripts/translate_to_fhir.py` so the CI log demonstrates `VALID R5 AuditEvent` for every positive example.
+
+### Changed
+
+- **`schema_version`** -- `const: "2.0"` in the v2.0 schema.
+- **`actor.subject_type`** -- enum extended to include `"agent"` (refactored to `$ref: "#/$defs/SubjectType"`). v1.1 values `"human"` and `"service"` are unchanged.
+- **`actor` semantics** -- v2.0 defines `actor` precisely as the *authenticating* identity (the identity whose credentials were presented). v1.x events made no explicit claim either way; v2.0 events do, and the schema version is the marker.
+
+### Migration
+
+- Producers in agent-free environments: update `schema_version` to `"2.0"`; nothing else changes. The absence of `delegation` now positively asserts direct action.
+- Producers in agent-exposed environments: route agent traffic through an Enforced or Instrumented emission path (RFC §11) before claiming v2.0 attribution semantics.
+- Consumers: queries of the form "all actions by user Y" should be reviewed; where the intent is "performed personally by Y," extend with `delegation IS NULL` or the store's equivalent.
+
+See [RFC 0001](docs/rfc/RFC-0001-agent-attribution-github.md) for the full design, controls-mapping deltas (HIPAA §164.312(b)/(d), 42 CFR Part 2 §2.13/§2.16, SOC 2 CC6.1/CC7.2, NIST AI RMF, ISO/IEC 42001 §8.3), emission tiers, and PHI-safety discipline.
+
 ## [1.1.2] - 2026-05-12
 
 ### Changed
@@ -74,6 +112,7 @@ See [docs/controls-mapping.md](docs/controls-mapping.md) for detailed HIPAA Secu
 - Documentation: field definitions, event types, privacy model, controls mapping, query examples, rationale, versioning.
 - Examples: patient read, login, note update failure, patient data export.
 
+[2.0.0]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.2...v2.0.0
 [1.1.2]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.0.0...v1.1.0

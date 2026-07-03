@@ -1,0 +1,55 @@
+{
+  "schema_version": "2.0",
+  "event_id": "af4d5e60-7182-4d9e-bf20-3c4d5e6f7081",
+  "timestamp": "2026-06-12T16:45:33Z",
+  "service": { "name": "bh-export-worker", "environment": "prod" },
+  "correlation": {
+    "request_id": "req_subagent_003",
+    "trace_id": "trace_subagent_003"
+  },
+  "actor": {
+    "subject_id": "agent_cred_010",
+    "subject_type": "agent",
+    "org_id": "org_77",
+    "roles": ["reporting_delegate"]
+  },
+  "delegation": {
+    "acting": {
+      "subject_id": "agent_inst_sub_8821",
+      "subject_type": "agent",
+      "agent": {
+        "interface": "api",
+        "vendor": "vendor_a",
+        "model_family": "model_x",
+        "model_version": "x-3.1",
+        "harness": "subagent_runner",
+        "harness_version": "0.4.2"
+      }
+    },
+    "authorizing": {
+      "subject_id": "user_123",
+      "subject_type": "human",
+      "org_id": "org_77"
+    },
+    "delegation_type": "autonomous",
+    "agent_session_id": "agsess_01J9X0003_SUB",
+    "parent_agent_session_id": "agsess_01J9X0003",
+    "chain_depth": 2
+  },
+  "action": {
+    "type": "EXPORT",
+    "name": "weekly_attendance_summary",
+    "phi_touched": true,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "PatientRecord",
+    "id": "export_222",
+    "patient_id": "pat_456"
+  },
+  "outcome": { "status": "SUCCESS" },
+  "metadata": {
+    "record_count": 12,
+    "export_format": "csv"
+  }
+}

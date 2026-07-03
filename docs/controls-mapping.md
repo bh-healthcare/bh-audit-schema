@@ -198,3 +198,40 @@ The schema provides the audit trail for consent-gated access but does not model 
 - [ ] Establish retention policies (HIPAA: minimum 6 years recommended)
 - [ ] Conduct regular access reviews (quarterly recommended)
 - [ ] Validate emitted events against the v1.1 schema in CI
+
+
+---
+
+## v2.0 deltas -- AI agent attribution
+
+The v2.0 schema (RFC 0001) introduces a multi-actor attribution model. The deltas below are additive to the v1.1 mappings above; they describe new evidence available *only* when the producer emits v2.0 events with a populated `delegation` object.
+
+### HIPAA §164.312(d) -- Person or Entity Authentication
+
+The strongest new hook. The provision requires verifying that a person or entity seeking access is who they claim to be. Agent-mediated access under human credentials is precisely the scenario where the authenticated identity and the acting entity diverge. The pair (`actor`, `delegation.acting`) is the record of that divergence -- `actor` documents which credential was presented, `delegation.acting` documents which entity actually exercised the authenticated access.
+
+### HIPAA §164.312(b) -- Audit Controls
+
+Extended: the recorded activity now distinguishes the performing entity from the credentialed identity. `delegation.delegation_type` records the supervision state at the time of each action (`supervised` / `autonomous` / `scheduled`), making oversight a queryable property rather than implicit context.
+
+### 42 CFR Part 2 §2.13 / §2.16
+
+Agent access to SUD records inherits all existing protections. Additionally, `delegation.authorizing` makes consent accountability attach to a *human* even when an agent performed the access. `delegation.acting.agent.interface == "ui_driving"` flags the access pattern with the weakest technical controls and merits heightened review.
+
+### SOC 2 CC6.1 / CC7.2
+
+Agent session monitoring, override-rate analysis, and autonomous-action volume become queryable monitoring dimensions. Lifecycle events (`CREATE` / `UPDATE` of `AgentSession`) bound every agent action to a reviewable session; the `OVERRIDE` action records human interventions for compliance review.
+
+### NIST AI RMF (GOVERN, MAP) and ISO/IEC 42001 §8.3
+
+The delegation record is the operational evidence layer for AI governance claims: who authorized which agent to do what, under what supervision mode, with what override history. The mapping document states this as *supporting evidence*, not certification.
+
+### Implementer checklist additions for v2.0
+
+- [ ] Route agent traffic through an Enforced or Instrumented emission path (RFC §11) before claiming v2.0 attribution
+- [ ] Emit `AgentSession` lifecycle events at session start (`CREATE`) and end (`UPDATE`, `action.name: agent_session_end`)
+- [ ] Record `delegation.delegation_type` accurately for every agent action; treat unknown supervision state as `autonomous`
+- [ ] For sub-agents, populate both `chain_depth >= 2` and `parent_agent_session_id`
+- [ ] For human overrides, emit `OVERRIDE` with `resource.type: AgentSession` and `resource.id` set to the session being overridden
+- [ ] Never place prompt content, model outputs, screenshots, or reasoning traces in events; store such artifacts separately and reference them by opaque ID in `metadata`
+- [ ] Review queries of the form "all actions by user Y" -- where the intent is "performed personally by Y," extend with `delegation IS NULL` or the store equivalent

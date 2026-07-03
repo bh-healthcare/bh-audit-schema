@@ -1,0 +1,31 @@
+{
+  "schema_version": "2.0",
+  "event_id": "b0511f60-8293-4eaf-a031-4d5e6f708192",
+  "timestamp": "2026-06-12T17:01:09Z",
+  "service": { "name": "bh-intake-api", "environment": "prod" },
+  "correlation": {
+    "request_id": "req_human_direct_004"
+  },
+  "actor": {
+    "subject_id": "user_456",
+    "subject_type": "human",
+    "org_id": "org_77",
+    "roles": ["clinician"]
+  },
+  "action": {
+    "type": "READ",
+    "phi_touched": true,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "Patient",
+    "id": "pat_789",
+    "patient_id": "pat_789"
+  },
+  "http": {
+    "method": "GET",
+    "route_template": "/patients/{patient_id}",
+    "status_code": 200
+  },
+  "outcome": { "status": "SUCCESS" }
+}

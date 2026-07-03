@@ -27,6 +27,7 @@ This repository defines a standardized schema for audit events in behavioral hea
 | Path | Description |
 |------|-------------|
 | [`schema/audit_event.schema.json`](schema/audit_event.schema.json) | Latest stable schema (currently **v1.1.2**) |
+| [`schema/versions/2.0/`](schema/versions/2.0/) | **v2.0** -- AI agent attribution and human-agent delegation chain. Published; promotion to root pending the [RFC 0001](docs/rfc/RFC-0001-agent-attribution-github.md) discussion period |
 | [`schema/versions/1.1/`](schema/versions/1.1/) | Immutable v1.1.x schema (latest: 1.1.2) |
 | [`schema/versions/1.0/`](schema/versions/1.0/) | Immutable v1.0 schema |
 
@@ -46,6 +47,17 @@ This repository defines a standardized schema for audit events in behavioral hea
 ```
 
 See [`examples/1.0/`](examples/1.0/) for more examples.
+
+## v2.0: AI Agent Attribution
+
+v2.0 extends the schema with a multi-actor attribution model so that AI agents operating under delegated human authority can be audited truthfully. The single `actor` field of v1.x carried three implicit meanings -- *authenticating identity*, *acting identity*, *authorizing identity* -- that always collapsed into one person until agents began operating software. v2.0 splits them via a new optional top-level `delegation` object, extends `actor.subject_type` to include `"agent"`, adds an `OVERRIDE` action for human interruption of agent sessions, and rejects unattributed agent actions by construction.
+
+Producers in agent-free environments adopt v2.0 by updating `schema_version` to `"2.0"`; nothing else changes. Producers in agent-exposed environments must emit attribution via an Enforced or Instrumented path (see RFC §11) to claim v2.0 attribution semantics.
+
+- **RFC**: [`docs/rfc/RFC-0001-agent-attribution-github.md`](docs/rfc/RFC-0001-agent-attribution-github.md)
+- **FHIR R5 alignment**: [`docs/fhir/fhir-r5-gap-analysis-and-profile.md`](docs/fhir/fhir-r5-gap-analysis-and-profile.md) (gap analysis G1-G9, prior-art positioning vs HL7's `AuditEvent.agent.onBehalfOf` extension and IHE Basic Audit Log Patterns) plus the [`scripts/translate_to_fhir.py`](scripts/translate_to_fhir.py) translator (R5-validated against `fhir.resources` in CI)
+- **Examples**: [`examples/2.0/`](examples/2.0/) (7 positive -- 5 core attribution scenarios plus 2 session-lifecycle convention examples -- and 13 negative)
+- **Controls mapping deltas**: [`docs/controls-mapping.md`](docs/controls-mapping.md#v20-deltas----ai-agent-attribution) -- HIPAA §164.312(b)/(d), 42 CFR Part 2 §2.13/§2.16, SOC 2 CC6.1/CC7.2, NIST AI RMF, ISO/IEC 42001 §8.3
 
 ## Documentation
 
