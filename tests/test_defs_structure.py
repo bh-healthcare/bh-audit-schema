@@ -1,22 +1,22 @@
-"""Verify v1.1 schema publishes enums as named $defs referenced via $ref."""
+"""Verify v1.1 schema publishes enums as named $defs referenced via $ref, and
+that the root schema is a byte-for-byte copy of the current default version
+(v2.0 as of the RFC 0001 promotion)."""
 
 import json
 from pathlib import Path
 
-SCHEMA_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "schema"
-    / "versions"
-    / "1.1"
-    / "audit_event.schema.json"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+V11_SCHEMA_PATH = (
+    REPO_ROOT / "schema" / "versions" / "1.1" / "audit_event.schema.json"
 )
-ROOT_PATH = (
-    Path(__file__).resolve().parent.parent / "schema" / "audit_event.schema.json"
+V20_SCHEMA_PATH = (
+    REPO_ROOT / "schema" / "versions" / "2.0" / "audit_event.schema.json"
 )
+ROOT_PATH = REPO_ROOT / "schema" / "audit_event.schema.json"
 
 
 def _load():
-    with open(SCHEMA_PATH) as f:
+    with open(V11_SCHEMA_PATH) as f:
         return json.load(f)
 
 
@@ -68,8 +68,9 @@ class TestFileSync:
     def test_root_matches_versioned(self):
         with open(ROOT_PATH) as f:
             root = f.read()
-        with open(SCHEMA_PATH) as f:
+        with open(V20_SCHEMA_PATH) as f:
             versioned = f.read()
         assert root == versioned, (
-            "Root schema must be byte-for-byte copy of latest versioned schema"
+            "Root schema must be byte-for-byte copy of the current default "
+            "version (v2.0)"
         )

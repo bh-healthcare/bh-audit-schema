@@ -26,10 +26,12 @@ This repository defines a standardized schema for audit events in behavioral hea
 
 | Path | Description |
 |------|-------------|
-| [`schema/audit_event.schema.json`](schema/audit_event.schema.json) | Latest stable schema (currently **v1.1.2**) |
-| [`schema/versions/2.0/`](schema/versions/2.0/) | **v2.0** -- AI agent attribution and human-agent delegation chain. Published; promotion to root pending the [RFC 0001](docs/rfc/RFC-0001-agent-attribution-github.md) discussion period |
-| [`schema/versions/1.1/`](schema/versions/1.1/) | Immutable v1.1.x schema (latest: 1.1.2) |
+| [`schema/audit_event.schema.json`](schema/audit_event.schema.json) | Latest stable schema (currently **v2.0.0**) -- byte-for-byte copy of `schema/versions/2.0/audit_event.schema.json` |
+| [`schema/versions/2.0/`](schema/versions/2.0/) | **v2.0** -- AI agent attribution and human-agent delegation chain (default). See [RFC 0001](docs/rfc/RFC-0001-agent-attribution-github.md) |
+| [`schema/versions/1.1/`](schema/versions/1.1/) | Immutable v1.1.x schema (latest: 1.1.2). v1.1 producers should validate against this path, not the root |
 | [`schema/versions/1.0/`](schema/versions/1.0/) | Immutable v1.0 schema |
+
+> Validating an event against `schema/audit_event.schema.json` now applies v2.0 actor semantics. Producers on v1.1 or v1.0 must validate against their `schema/versions/<version>/` file directly.
 
 ### Example Event
 
