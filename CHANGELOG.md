@@ -5,11 +5,11 @@ All notable changes to the bh-audit-schema project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2026-06-14
+## [2.0.0] - 2026-07-02
 
 Major version introducing AI agent attribution and the human-agent delegation chain. Designed per [RFC 0001](docs/rfc/RFC-0001-agent-attribution-github.md) and additive with respect to v1.1: every valid v1.1 event becomes a valid v2.0 event by updating `schema_version`.
 
-Status: published under `schema/versions/2.0/`. The root pointer (`schema/audit_event.schema.json`) remains at v1.1.2 until the RFC's 14-day discussion period closes and the version is promoted. v1.x continues to be supported per the 6-month policy.
+Status: released and promoted. The root pointer (`schema/audit_event.schema.json`) is now a byte-for-byte copy of `schema/versions/2.0/audit_event.schema.json`. Validating events against the default root schema therefore applies v2.0 actor semantics -- v1.1 producers should validate against `schema/versions/1.1/audit_event.schema.json` explicitly. v1.x continues to be supported per the 6-month policy.
 
 ### Added
 
