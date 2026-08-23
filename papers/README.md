@@ -37,8 +37,8 @@ Three passes are required to resolve all cross-references (listings, tables).
 If you reference this work, please cite:
 
     Kumar, T. (2026). BH Audit Schema: An Open Standard for PHI-Safe Audit
-    Logging in Behavioral Health Systems. Behavioral Health Open Source.
-    https://github.com/bh-healthcare/bh-audit-schema
+    Logging in Behavioral Health Systems. Technical Report BHOS-TR-2026-01,
+    Behavioral Health Open Source. https://doi.org/10.5281/zenodo.21683079
 
 ## Related Documentation
 
