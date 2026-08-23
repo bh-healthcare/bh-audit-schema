@@ -12,7 +12,7 @@ This document is a draft for community discussion. This is not a release.
 | **Title** | Attribution Assurance and the Unattributed Agent |
 | **Status** | Draft for discussion. Target version and naming settled 2026-08-14; one open item in section 12.2, plus one deferred to RFC 0002 |
 | **Target** | bh-audit-schema v2.1 |
-| **Tracking issue** | to be assigned on publication |
+| **Tracking issue** | [#13](https://github.com/bh-healthcare/bh-audit-schema/issues/13) |
 | **Companion** | [RFC 0001: AI Agent Attribution and the Human-Agent Delegation Chain](RFC-0001-agent-attribution-github.md), [RFC 0002: Enforced Attribution Emission for MCP Tool Calls](https://github.com/bh-healthcare/bh-mcp-attribution/blob/main/docs/rfc/RFC-0002-mcp-attribution-enforcement.md) |
 | **Depends on** | bh-audit-schema `2.0` |
 | **Discussion period** | 14 days minimum, closing 2026-09-06 (minor version with a conditional required field, per [GOVERNANCE.md](../../GOVERNANCE.md)) |
@@ -351,7 +351,7 @@ Permanent once released. Recorded with the date so it is visible as a decision r
 
 ## 13. Consequences for the Reference Implementation Schedule
 
-Stated here because it is a scheduling fact that follows from a schema fact, and the two are easy to track separately until the coupling is named.
+Stated here because it is a scheduling fact that follows from a schema fact, and the two are easy to track separately until one blocks the other.
 
 `bh-mcp-attribution` currently defines `AssuranceLevel` in `context/models.py` with no field in any emittable event to carry it, and `build_denial_event` with a documented contract for a `context=None` case that cannot produce a valid v2.0 event. Neither is a defect in that repository. Both are correct implementations of a design that its pinned schema version cannot express.
 
