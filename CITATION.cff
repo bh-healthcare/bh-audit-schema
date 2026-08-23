@@ -1,0 +1,75 @@
+cff-version: 1.2.0
+message: >-
+  If you use this standard, please cite the paper that describes it,
+  listed under preferred-citation.
+title: bh-audit-schema
+abstract: >-
+  An open, versioned JSON Schema standard for behavioral health audit
+  events, with a FHIR R5 AuditEvent profile and reference translator.
+  PHI-minimizing by construction and mapped to HIPAA Security Rule,
+  42 CFR Part 2, and SOC 2 control objectives. Version 2.0 adds a
+  three-role attribution model (authenticating, acting, authorizing)
+  that makes AI agent-mediated access to patient records attributable,
+  with validation that rejects an unattributed agent action.
+type: software
+authors:
+  - family-names: Kumar
+    given-names: Tanmaya
+    orcid: 'https://orcid.org/0009-0005-8844-905X'
+    affiliation: Behavioral Health Open Source
+version: 2.0.0
+date-released: '2026-07-02'
+license: Apache-2.0
+repository-code: 'https://github.com/bh-healthcare/bh-audit-schema'
+url: 'https://bh-healthcare.org'
+keywords:
+  - audit logging
+  - behavioral health
+  - FHIR
+  - AuditEvent
+  - HIPAA
+  - 42 CFR Part 2
+  - agent attribution
+  - agentic AI
+  - AI governance
+  - JSON Schema
+  - healthcare interoperability
+preferred-citation:
+  type: report
+  title: >-
+    BH Audit Schema: An Open Standard for PHI-Safe Audit Logging in
+    Behavioral Health Systems
+  authors:
+    - family-names: Kumar
+      given-names: Tanmaya
+      orcid: 'https://orcid.org/0009-0005-8844-905X'
+      affiliation: Behavioral Health Open Source
+  institution:
+    name: Behavioral Health Open Source
+  number: BHOS-TR-2026-01
+  year: 2026
+  month: 4
+  doi: 10.5281/zenodo.21683079
+  url: 'https://tanmayakumar.com/publications/bh-audit-schema-paper'
+  license: CC-BY-4.0
+references:
+  - type: report
+    title: >-
+      Agent Attribution for Healthcare Audit: A FHIR R5 AuditEvent
+      Profile for Auditing AI-Mediated Access to Protected Health
+      Information
+    authors:
+      - family-names: Kumar
+        given-names: Tanmaya
+        orcid: 'https://orcid.org/0009-0005-8844-905X'
+        affiliation: Behavioral Health Open Source
+    institution:
+      name: Behavioral Health Open Source
+    number: BHOS-TR-2026-03
+    year: 2026
+    month: 7
+    doi: 10.5281/zenodo.21682867
+    url: >-
+      https://tanmayakumar.com/publications/agent-attribution-healthcare-audit
+    license: CC-BY-4.0
+    notes: Describes the v2.0 agent attribution layer.

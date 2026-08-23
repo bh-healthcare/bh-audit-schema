@@ -51,6 +51,18 @@ Breaking changes require:
 
 See [docs/versioning.md](docs/versioning.md) for versioning policy.
 
+## Release Checklist
+
+Zenodo reads the release version from the citation files in the repository, **not** from the git tag. Bumping the tag without bumping these files produces multiple Zenodo records that all claim the same version. Complete every step in order:
+
+1. Bump `version` and `date-released` in [`CITATION.cff`](CITATION.cff)
+2. Bump `version` in [`.zenodo.json`](.zenodo.json)
+3. Add the release section to [`CHANGELOG.md`](CHANGELOG.md) with the release date and a comparison link
+4. Commit the above
+5. Only then create the tag and publish the GitHub release
+
+Steps 1 and 2 must land in the commit the tag points at. A tag created before the bump cannot be corrected without editing the Zenodo record by hand.
+
 ## Code of Conduct
 
 - Be respectful and constructive

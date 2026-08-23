@@ -57,9 +57,17 @@ v2.0 extends the schema with a multi-actor attribution model so that AI agents o
 Producers in agent-free environments adopt v2.0 by updating `schema_version` to `"2.0"`; nothing else changes. Producers in agent-exposed environments must emit attribution via an Enforced or Instrumented path (see RFC §11) to claim v2.0 attribution semantics.
 
 - **RFC**: [`docs/rfc/RFC-0001-agent-attribution-github.md`](docs/rfc/RFC-0001-agent-attribution-github.md)
-- **FHIR R5 alignment**: [`docs/fhir/fhir-r5-gap-analysis-and-profile.md`](docs/fhir/fhir-r5-gap-analysis-and-profile.md) (gap analysis G1-G9, prior-art positioning vs HL7's `AuditEvent.agent.onBehalfOf` extension and IHE Basic Audit Log Patterns) plus the [`scripts/translate_to_fhir.py`](scripts/translate_to_fhir.py) translator (R5-validated against `fhir.resources` in CI)
+- **FHIR R5 alignment**: [`docs/fhir/fhir-r5-gap-analysis-and-profile.md`](docs/fhir/fhir-r5-gap-analysis-and-profile.md) (gap analysis G1-G9, prior-art positioning vs HL7's `auditevent-OnBehalfOf` extension and IHE Basic Audit Log Patterns) plus the [`scripts/translate_to_fhir.py`](scripts/translate_to_fhir.py) translator (R5-validated against `fhir.resources` in CI)
 - **Examples**: [`examples/2.0/`](examples/2.0/) (7 positive -- 5 core attribution scenarios plus 2 session-lifecycle convention examples -- and 13 negative)
 - **Controls mapping deltas**: [`docs/controls-mapping.md`](docs/controls-mapping.md#v20-deltas----ai-agent-attribution) -- HIPAA §164.312(b)/(d), 42 CFR Part 2 §2.13/§2.16, SOC 2 CC6.1/CC7.2, NIST AI RMF, ISO/IEC 42001 §8.3
+
+## Proposed: Attribution Assurance
+
+A draft RFC proposes recording *how* an event's attribution was established alongside *who* authorized the action, and making the unattributed-agent case expressible. Two gaps motivate it. A token-derived attribution and an agent-supplied one currently serialize to byte-identical v2.0 events, so a consumer cannot tell the strongest binding from the weakest. And an event stating that an agent acted with no nameable authorizing human is rejected by v2.0 rather than expressible in it, which means an enforcing layer cannot record its own denials.
+
+Draft for discussion until **2026-09-06**, not a release. Targets **v2.1**: the new block is required only when the existing optional `delegation` object is present, which [`docs/versioning.md`](docs/versioning.md#what-constitutes-a-breaking-change) classifies as a minor bump.
+
+- **RFC**: [`docs/rfc/RFC-0003-attribution-assurance.md`](docs/rfc/RFC-0003-attribution-assurance.md)
 
 ## Documentation
 
@@ -116,10 +124,22 @@ See [GOVERNANCE.md](GOVERNANCE.md) for project governance model.
 ## Versioning
 
 The schema follows semantic versioning:
-- **1.x**: Backward-compatible additions
+- **1.x**: Backward-compatible additions to v1
 - **2.0**: Breaking changes
+- **2.x**: Backward-compatible additions to v2
 
 See [docs/versioning.md](docs/versioning.md) for details.
+
+## Citation
+
+Machine-readable citation metadata lives in [`CITATION.cff`](CITATION.cff) (rendered by GitHub as "Cite this repository") and [`.zenodo.json`](.zenodo.json) (used for release archiving). If you use this standard in published work, cite the paper that describes it:
+
+| Report | Scope | DOI |
+|--------|-------|-----|
+| BHOS-TR-2026-01 | The standard as a whole -- design principles, threat model, specification, control mappings | [10.5281/zenodo.21683079](https://doi.org/10.5281/zenodo.21683079) |
+| BHOS-TR-2026-03 | The v2.0 agent attribution layer and FHIR R5 AuditEvent profile | [10.5281/zenodo.21682867](https://doi.org/10.5281/zenodo.21682867) |
+
+To cite the schema artifact itself rather than the papers, cite this repository at the specific version you validated against.
 
 ## Disclaimer
 

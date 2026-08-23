@@ -5,6 +5,25 @@ All notable changes to the bh-audit-schema project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **[RFC 0003: Attribution Assurance and the Unattributed Agent](docs/rfc/RFC-0003-attribution-assurance.md)** -- draft for discussion, published 2026-08-23, closing 2026-09-06. No schema change yet. Proposes a top-level `attribution` object carrying a closed `level` enum (`verified`, `bound`, `asserted`, `unattributed`) and an open `method` string, plus four conditional validation rules. Addresses two gaps in v2.0: a token-derived and an agent-supplied attribution serialize identically, and an event reporting an agent action with no nameable authorizing human is rejected rather than expressible. Targets v2.1.
+- **`CITATION.cff`** -- Citation File Format 1.2.0 metadata. GitHub renders this as the "Cite this repository" box. `preferred-citation` points at BHOS-TR-2026-01 ([10.5281/zenodo.21683079](https://doi.org/10.5281/zenodo.21683079)), the paper describing the standard as a whole; BHOS-TR-2026-03 ([10.5281/zenodo.21682867](https://doi.org/10.5281/zenodo.21682867)), which describes the v2.0 agent attribution layer, is listed under `references`. [`papers/README.md`](papers/README.md) now cites the report DOI.
+- **`.zenodo.json`** -- Zenodo deposit metadata for archived releases, including the `bh-healthcare` community assignment and `isDocumentedBy` related identifiers for both technical reports. Zenodo ignores `CITATION.cff` when this file is present, so it is complete on its own.
+- **Release checklist** in [CONTRIBUTING.md](CONTRIBUTING.md#release-checklist) -- the `version` field in both citation files must be bumped and committed *before* tagging, because Zenodo reads the version from these files rather than from the git tag.
+
+### Changed
+
+- **Versioning policy clarified** in [docs/versioning.md](docs/versioning.md#what-constitutes-a-breaking-change) -- the breaking-change list now distinguishes adding a field that is *unconditionally required at the root*, which remains a major bump, from adding a field that is *required only when an existing optional object is present*, which is a minor bump. Rationale: `schema_version` is a `const` per version, so no stored record is ever reinterpreted, and a conditionally required field is unreachable for producers that were not already emitting the object it attaches to. The prior wording forbade both cases without distinguishing them. No schema change; this is a policy clarification that applies to future revisions.
+- **FHIR G3 prior-art reference** in [docs/fhir/fhir-r5-gap-analysis-and-profile.md](docs/fhir/fhir-r5-gap-analysis-and-profile.md) -- corrected to the published `auditevent-OnBehalfOf` extension (canonical `http://hl7.org/fhir/StructureDefinition/auditevent-OnBehalfOf`).
+
+### Notes
+
+- No software DOI is recorded yet. One is minted only when Zenodo archives the first release; the concept DOI should then be added to `CITATION.cff` as an `identifiers` entry and badged in the README.
+- The Zenodo webhook archives only releases created after it is enabled, so the existing v2.0.0 tag is not archived retroactively.
+
 ## [2.0.0] - 2026-07-02
 
 Major version introducing AI agent attribution and the human-agent delegation chain. Designed per [RFC 0001](docs/rfc/RFC-0001-agent-attribution-github.md) and additive with respect to v1.1: every valid v1.1 event becomes a valid v2.0 event by updating `schema_version`.
@@ -112,6 +131,7 @@ See [docs/controls-mapping.md](docs/controls-mapping.md) for detailed HIPAA Secu
 - Documentation: field definitions, event types, privacy model, controls mapping, query examples, rationale, versioning.
 - Examples: patient read, login, note update failure, patient data export.
 
+[Unreleased]: https://github.com/bh-healthcare/bh-audit-schema/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.2...v2.0.0
 [1.1.2]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.0...v1.1.1
