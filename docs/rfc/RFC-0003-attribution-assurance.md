@@ -348,13 +348,7 @@ The ordering in section 4.4 is not expressible in JSON Schema and is not covered
 
 ### 12.1 Settled
 
-**Target version: v2.1.** 
-
-The levels are totally ordered and the order is normative. Decided 2026-08-26, during the discussion period.
-
-The draft as published used "weakest" normatively in section 4.3 without defining an order. The natural derivation from the level names is string comparison, and string comparison places `unattributed` above `bound`. The three levels that predate `unattributed` sort identically under both orderings, so the defect was not observable until the fourth level was proposed. Recorded rather than silently corrected, because the failure mode generalizes: a ranked closed enum whose rank is not stated normatively gets a rank invented independently by every implementer.
-
-Decided 2026-08-14.
+**Target version: v2.1.** Decided 2026-08-14.
 
 `docs/versioning.md` already lists "adding conditional validation requirements" and "relaxing validation constraints" as non-breaking, which describes R2, R3, R4 and the OVERRIDE amendment exactly. R1 was the question, because it makes a new field required whenever an existing optional block is present, and the governance rules stated that a required field is never added without a major bump.
 
@@ -374,6 +368,10 @@ Permanent once released. Recorded with the date so it is visible as a decision r
 
 **One level per delegation block, reporting the weakest binding.** See section 4.3. Per-identity assurance designs for a problem no implementer has reported, and reversing this later breaks consumer filters.
 
+The levels are totally ordered and the order is normative. Decided 2026-08-26, during the discussion period.
+
+The draft as published used "weakest" normatively in section 4.3 without defining an order. The natural derivation from the level names is string comparison, and string comparison places `unattributed` above `bound`. The three levels that predate `unattributed` sort identically under both orderings, so the defect was not observable until the fourth level was proposed. Recorded rather than silently corrected, because the failure mode generalizes: a ranked closed enum whose rank is not stated normatively gets a rank invented independently by every implementer.
+
 ### 12.2 Open
 
 **1. Should `method` become a closed enum in a later version?** Left open deliberately. Closing it early forces a schema revision for each new credential type; leaving it open forever means no consumer can rely on it. Revisit when there is evidence about which values appear in practice.
@@ -384,7 +382,9 @@ Permanent once released. Recorded with the date so it is visible as a decision r
 
 Stated here because it is a scheduling fact that follows from a schema fact, and the two are easy to track separately until one blocks the other.
 
-`bh-mcp-attribution` currently defines `AssuranceLevel` in `context/models.py` with no field in any emittable event to carry it, and `build_denial_event` with a documented contract for a `context=None` case that cannot produce a valid v2.0 event. Neither is a defect in that repository. Both are correct implementations of a design that its pinned schema version cannot express. `AssuranceLevel` in `context/models.py` derives its comparison from the enum's string values and satisfies section 4.4 only for the three levels that predate `unattributed`. It requires an explicit rank before `minimum_assurance` can be trusted.
+`bh-mcp-attribution` currently defines `AssuranceLevel` in `context/models.py` with no field in any emittable event to carry it, and `build_denial_event` with a documented contract for a `context=None` case that cannot produce a valid v2.0 event. Neither is a defect in that repository. Both are correct implementations of a design that its pinned schema version cannot express. 
+
+`AssuranceLevel` in `context/models.py` derives its comparison from the enum's string values and satisfies section 4.4 only for the three levels that predate `unattributed`. It requires an explicit rank before `minimum_assurance` can be trusted.
 
 The consequence is that the two releases are coupled. v2.1 lands 2026-09-06, the same day v0.1.0 ships pinned to `2.1.0`, so the walking skeleton is not blocked and the first emitted events carry the field this RFC exists to add. Retrofitting is not available: an assurance level cannot be recovered from a corpus emitted without it, because the information was never captured. That is why the two releases were coupled rather than sequenced.
 
