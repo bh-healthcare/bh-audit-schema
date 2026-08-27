@@ -10,7 +10,7 @@ This document is a draft for community discussion. This is not a release.
 |---|---|
 | **RFC** | 0003 |
 | **Title** | Attribution Assurance and the Unattributed Agent |
-| **Status** | Draft for discussion. Target version and naming settled 2026-08-14; one open item in section 12.2, plus one deferred to RFC 0002 |
+| **Status** | Draft for discussion. Target version and naming settled 2026-08-14; ordering added 2026-08-26; one open item in section 12.2, plus one deferred to RFC 0002 |
 | **Target** | bh-audit-schema v2.1 |
 | **Tracking issue** | [#13](https://github.com/bh-healthcare/bh-audit-schema/issues/13) |
 | **Companion** | [RFC 0001: AI Agent Attribution and the Human-Agent Delegation Chain](RFC-0001-agent-attribution-github.md), [RFC 0002: Enforced Attribution Emission for MCP Tool Calls](https://github.com/bh-healthcare/bh-mcp-attribution/blob/main/docs/rfc/RFC-0002-mcp-attribution-enforcement.md) |
@@ -147,9 +147,23 @@ A producer that cannot determine how it established an attribution is describing
 
 A delegation block holds at least two identities, and they can be established by different mechanisms. The authorizing human may come from a token while the acting agent identity comes from configuration.
 
-`level` describes the block as a whole and reports the **weakest** mechanism that contributed to it. The alternative, a level per identity, is more precise and worse: every downstream consumer would have to invent its own rule for combining two or three levels into the single predicate a query needs, and those rules would differ between consumers. One field means one predicate, and the enforced-tier query is `level IN ('verified', 'bound')`.
+`level` describes the block as a whole and reports the **weakest** mechanism that contributed to it. Weakest is defined by the ordering in section 4.4. The alternative, a level per identity, is more precise and worse: every downstream consumer would have to invent its own rule for combining two or three levels into the single predicate a query needs, and those rules would differ between consumers. One field means one predicate, and the enforced-tier query is `level IN ('verified', 'bound')`.
 
 Stated plainly because it is a real commitment: reversing this later breaks consumer filters. Per-identity assurance designs for a problem no implementer has reported.
+
+### 4.4 The levels are ordered, and the order is normative
+
+The four levels form a total order, weakest to strongest:
+
+`unattributed` < `asserted` < `bound` < `verified`
+
+An implementation comparing a level against a threshold ***MUST*** compare on position in this sequence and ***MUST NOT*** compare the serialized strings. Lexical order of the four values is `asserted` < `bound` < `unattributed` < `verified`, which places the weakest level above bound. A string comparison against a bound threshold therefore admits `unattributed`, which is the one value the threshold exists to exclude. The two orderings agree on the other three values, so an implementation written before `unattributed` existed passes every test it has and fails only on the case the level was added to express.
+
+This applies to query languages as well as to programming languages. A threshold in SQL is expressed as explicit set membership or as a join against a rank table, never as a string comparison on the stored value.
+
+The position is a property of this specification and is not serialized. An event carries level as a string and carries nothing else about its rank. See section 8.7.
+
+`unattributed` sorts lowest although it is not a weaker binding but the absence of one. The order exists to answer one question, whether an event meets a stated floor, and for `unattributed` the answer is no at every floor. Section 2 is unchanged: defining the order is not setting the floor. Where the floor sits remains a deployment policy decision.
 
 ## 5. Conditional Validation
 
@@ -239,6 +253,12 @@ This would make v2.1 a purely additive minor bump with no conditional required f
 
 The cost is that an event with a delegation block and no attribution block would be legal and would mean nothing determinate, which is the hole R1 exists to close. Half of this RFC's value is the guarantee that if an event names an authorizing human, it also says how that name was obtained. Without R1 there is no such guarantee, only a field some producers populate.
 
+### 8.7 Serialize the rank alongside the level
+
+Carry a numeric `rank` next to `level`, or replace the enum with an integer.
+
+Rejected. Two encodings of one fact drift, and the format would then need a validation rule asserting they agree. It also puts the numbering in the wire format, so inserting a level between two existing ones becomes a breaking change to every stored event rather than a revision to this document. The order is a property of the vocabulary and belongs with the specification that defines the vocabulary.
+
 ## 9. FHIR R5 Translation
 
 The existing translator implements a bounded extension set for the gaps R5 does not cover. `attribution` follows that pattern:
@@ -274,6 +294,7 @@ Queries of the form "all agent actions with a named authorizing human" continue 
 
 - A deployment health query on `attribution.level = 'unattributed'`, which was previously unrepresentable and is now the clearest signal that an enforcing layer is misconfigured or that an agent is reaching a tool without credentials.
 - A posture query on the distribution of `level` across a service, which answers whether a deployment claiming enforced-tier attribution is actually resolving identities from tokens.
+- A threshold on `attribution.level` is expressed as explicit set membership or as a join against a rank table. A string comparison in SQL is lexical and admits `unattributed` above `bound`. See section 4.4.
 
 ### 10.3 Downstream packages
 
@@ -319,11 +340,21 @@ R2, R4 and the OVERRIDE amendment are expressed with `not` and `anyOf`, and JSON
 
 A producer should validate these invariants itself and raise its own message. Relying on validator output here gives an operator a wall of JSON and the wrong diagnosis.
 
+### 11.3 Ordering conformance
+
+The ordering in section 4.4 is not expressible in JSON Schema and is not covered by the corpus in 11.1. An implementation claiming conformance demonstrates the full threshold matrix: each of the four levels against each of the three thresholds `asserted`, `bound`, `verified`, twelve cases. The case that distinguishes a conforming implementation from a lexical one is `unattributed` against a `bound` threshold, which denies.
+
 ## 12. Decisions and Open Items
 
 ### 12.1 Settled
 
-**Target version: v2.1.** Decided 2026-08-14.
+**Target version: v2.1.** 
+
+The levels are totally ordered and the order is normative. Decided 2026-08-26, during the discussion period.
+
+The draft as published used "weakest" normatively in section 4.3 without defining an order. The natural derivation from the level names is string comparison, and string comparison places `unattributed` above `bound`. The three levels that predate `unattributed` sort identically under both orderings, so the defect was not observable until the fourth level was proposed. Recorded rather than silently corrected, because the failure mode generalizes: a ranked closed enum whose rank is not stated normatively gets a rank invented independently by every implementer.
+
+Decided 2026-08-14.
 
 `docs/versioning.md` already lists "adding conditional validation requirements" and "relaxing validation constraints" as non-breaking, which describes R2, R3, R4 and the OVERRIDE amendment exactly. R1 was the question, because it makes a new field required whenever an existing optional block is present, and the governance rules stated that a required field is never added without a major bump.
 
@@ -353,7 +384,7 @@ Permanent once released. Recorded with the date so it is visible as a decision r
 
 Stated here because it is a scheduling fact that follows from a schema fact, and the two are easy to track separately until one blocks the other.
 
-`bh-mcp-attribution` currently defines `AssuranceLevel` in `context/models.py` with no field in any emittable event to carry it, and `build_denial_event` with a documented contract for a `context=None` case that cannot produce a valid v2.0 event. Neither is a defect in that repository. Both are correct implementations of a design that its pinned schema version cannot express.
+`bh-mcp-attribution` currently defines `AssuranceLevel` in `context/models.py` with no field in any emittable event to carry it, and `build_denial_event` with a documented contract for a `context=None` case that cannot produce a valid v2.0 event. Neither is a defect in that repository. Both are correct implementations of a design that its pinned schema version cannot express. `AssuranceLevel` in `context/models.py` derives its comparison from the enum's string values and satisfies section 4.4 only for the three levels that predate `unattributed`. It requires an explicit rank before `minimum_assurance` can be trusted.
 
 The consequence is that the two releases are coupled. v2.1 lands 2026-09-06, the same day v0.1.0 ships pinned to `2.1.0`, so the walking skeleton is not blocked and the first emitted events carry the field this RFC exists to add. Retrofitting is not available: an assurance level cannot be recovered from a corpus emitted without it, because the information was never captured. That is why the two releases were coupled rather than sequenced.
 

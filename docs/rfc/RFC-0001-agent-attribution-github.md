@@ -10,7 +10,7 @@ This document is a draft for community discussion. This is not a release.
 |---|---|
 | **RFC** | 0001 |
 | **Title** | AI Agent Attribution and the Human-Agent Delegation Chain |
-| **Status** | Draft for discussion |
+| **Status** | Implemented. Released 2 July 2026, tag v2.0.0|
 | **Target** | bh-audit-schema v2.0 |
 | **Tracking issue** | [#6](https://github.com/bh-healthcare/bh-audit-schema/issues/6) |
 | **Companion** | [`fhir/fhir-r5-gap-analysis-and-profile.md`](../fhir/fhir-r5-gap-analysis-and-profile.md) |
