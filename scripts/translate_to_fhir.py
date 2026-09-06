@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Translate bh-audit-schema v2.0 events to FHIR R5 AuditEvent resources.
+"""Translate bh-audit-schema v2.0 and v2.1 events to FHIR R5 AuditEvent resources.
 
 Companion to `docs/fhir/fhir-r5-gap-analysis-and-profile.md`. Implements the
 element mapping in §5 of that document, including the three-role attribution
-slicing (authenticating / acting / authorizing) and the bounded extension set
-covering G4-G6 gaps (delegation-type, agent-session-id, chain-depth,
-parent-agent-session-id, agent-descriptor).
+slicing (authenticating / acting / authorizing), the `unattributed` slice for
+a v2.1 event whose authorizing human could not be named, and the bounded
+extension set covering G4-G6 gaps (delegation-type, agent-session-id,
+chain-depth, parent-agent-session-id, agent-descriptor) plus the v2.1
+attribution-level and attribution-method extensions.
 
 PHI discipline: only opaque identifiers cross the boundary. No free text
 beyond enum-derived display strings.
@@ -15,7 +17,7 @@ Usage:
     python scripts/translate_to_fhir.py [glob]
     python scripts/translate_to_fhir.py --no-validate [glob]
 
-Default glob: examples/2.0/*.json
+Default globs: examples/2.0/*.json and examples/2.1/*.json
 """
 
 import argparse
@@ -25,6 +27,7 @@ from glob import glob
 from pathlib import Path
 
 CANON = "https://bh-healthcare.github.io/bh-audit-schema/fhir"
+SCHEMA_VERSIONS = ("2.0", "2.1")
 EXT = f"{CANON}/StructureDefinition"
 CS = f"{CANON}/CodeSystem"
 
@@ -66,16 +69,25 @@ def _attribution_agent(role_code, who_id, requestor, roles=None, extensions=None
 
 
 def translate(event: dict) -> dict:
-    """Translate one bh-audit-schema v2.0 event to an R5 AuditEvent dict."""
+    """Translate one bh-audit-schema v2.0 or v2.1 event to an R5 AuditEvent dict.
+
+    A v2.1 `attribution` block becomes the attribution-level and
+    attribution-method extensions. An event at level `unattributed` has no
+    delegation block and is given a single `unattributed` agent slice.
+    """
     action = event["action"]
     resource = event["resource"]
     outcome = event["outcome"]
     delegation = event.get("delegation")
+    attribution = event.get("attribution")
 
     ae = {
         "resourceType": "AuditEvent",
         "id": event["event_id"],
-        "meta": {"profile": [f"{CANON}/StructureDefinition/bh-audit-event"]},
+        # The 2.0 and 2.1 profiles differ (inv-6, inv-7, the unattributed
+        # slice), so each resource claims the canonical for its own version.
+        "meta": {"profile": [f"{CANON}/{event['schema_version']}"
+                             f"/StructureDefinition/bh-audit-event"]},
         "category": [{"coding": [{"system": f"{CS}/event-category",
                                   "code": "bh-audit"}]}],
         "code": {"coding": [{"system": f"{CS}/action-name",
@@ -101,19 +113,29 @@ def translate(event: dict) -> dict:
     if details:
         ae["outcome"]["detail"] = details
 
+    # Built outside the delegation gate so an unattributed event, which has
+    # no delegation block, still carries its attribution level.
+    ext = []
     if delegation:
-        ext = [
+        ext.extend([
             {"url": f"{EXT}/delegation-type",
              "valueCode": delegation["delegation_type"]},
             {"url": f"{EXT}/agent-session-id",
              "valueString": delegation["agent_session_id"]},
-        ]
+        ])
         if "chain_depth" in delegation:
             ext.append({"url": f"{EXT}/chain-depth",
                         "valuePositiveInt": delegation["chain_depth"]})
         if "parent_agent_session_id" in delegation:
             ext.append({"url": f"{EXT}/parent-agent-session-id",
                         "valueString": delegation["parent_agent_session_id"]})
+    if attribution:
+        ext.append({"url": f"{EXT}/attribution-level",
+                    "valueCode": attribution["level"]})
+        if "method" in attribution:
+            ext.append({"url": f"{EXT}/attribution-method",
+                        "valueString": attribution["method"]})
+    if ext:
         ae["extension"] = ext
 
     actor = event["actor"]
@@ -136,6 +158,14 @@ def translate(event: dict) -> dict:
         ae["agent"].append(_attribution_agent(
             "authorizing-identity", delegation["authorizing"]["subject_id"],
             requestor=True))
+    elif attribution and attribution["level"] == "unattributed":
+        # With no delegation block the direct branch would assert that the
+        # agent acted on its own initiative as the requestor. The slice names
+        # the state instead: a credential whose authorizing human could not
+        # be resolved, and no requestor.
+        ae["agent"].append(_attribution_agent(
+            "unattributed", actor["subject_id"], requestor=False,
+            roles=actor.get("roles")))
     else:
         ae["agent"].append(_attribution_agent(
             "direct", actor["subject_id"], requestor=True,
@@ -168,7 +198,7 @@ def translate(event: dict) -> dict:
             # Per FHIR companion §5: http.client_ip -> agent.network[x] on
             # the relevant slice. "Relevant slice" is the authenticating
             # agent in delegated events (the credential that connected),
-            # else the single direct agent.
+            # else the single direct or unattributed agent.
             target = ae["agent"][0]
             target["networkString"] = h["client_ip"]
 
@@ -186,7 +216,8 @@ def translate(event: dict) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("paths", nargs="*",
-                        help="Event JSON files or globs (default: examples/2.0/*.json)")
+                        help="Event JSON files or globs "
+                             "(default: examples/2.0/*.json and examples/2.1/*.json)")
     parser.add_argument("--no-validate", action="store_true",
                         help="Skip R5 structural validation (no fhir.resources required)")
     args = parser.parse_args()
@@ -197,7 +228,9 @@ def main() -> int:
             files.extend(glob(p))
     else:
         repo_root = Path(__file__).resolve().parent.parent
-        files = sorted((repo_root / "examples" / "2.0").glob("*.json"))
+        files = []
+        for version in SCHEMA_VERSIONS:
+            files.extend(sorted((repo_root / "examples" / version).glob("*.json")))
         files = [str(f) for f in files]
 
     if not files:
@@ -218,10 +251,10 @@ def main() -> int:
     for path in sorted(files):
         with open(path) as f:
             event = json.load(f)
-        if event.get("schema_version") != "2.0":
+        if event.get("schema_version") not in SCHEMA_VERSIONS:
             continue
         resource = translate(event)
-        name = Path(path).name
+        name = f"{Path(path).parent.name}/{Path(path).name}"
         if args.no_validate:
             print(f"  TRANSLATED  {name} (agents: {len(resource['agent'])})")
             continue

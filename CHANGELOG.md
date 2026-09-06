@@ -7,20 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-06
+
+Minor version implementing [RFC 0003: Attribution Assurance and the Unattributed Agent](docs/rfc/RFC-0003-attribution-assurance.md). Records how an event's attribution was established and makes the case of an agent with no nameable authorizing human expressible. Additive for producers that do not emit `delegation`: their events become valid v2.1 events by updating `schema_version`. RFC 0003 was published for discussion on 2026-08-23; the discussion period closed 2026-09-06.
+
+Status: released and promoted. The root pointer (`schema/audit_event.schema.json`) is a byte-for-byte copy of `schema/versions/2.1/audit_event.schema.json`. Validating events against the default root schema applies the v2.1 rules -- v2.0 producers should validate against `schema/versions/2.0/audit_event.schema.json` explicitly. v2.0 and v1.x continue to be supported.
+
 ### Added
 
-- **[RFC 0003: Attribution Assurance and the Unattributed Agent](docs/rfc/RFC-0003-attribution-assurance.md)** -- draft for discussion, published 2026-08-23, closing 2026-09-06. No schema change yet. Proposes a top-level `attribution` object carrying a closed `level` enum (`verified`, `bound`, `asserted`, `unattributed`) and an open `method` string, plus four conditional validation rules. Addresses two gaps in v2.0: a token-derived and an agent-supplied attribution serialize identically, and an event reporting an agent action with no nameable authorizing human is rejected rather than expressible. Targets v2.1.
+- **`attribution` object** (optional top-level) -- a closed `level` enum (`verified`, `bound`, `asserted`, `unattributed`, published as `$defs/AttributionLevel`) and an open `method` string of 1 to 64 characters. `level` describes the delegation block as a whole and reports the weakest mechanism that contributed to it. There is no `unknown` level; a producer that cannot say how it established an attribution is describing `asserted`.
+- **Conditional validation R1, R2, R3** (RFC 0003 §5) -- `delegation` present requires `attribution` with a level other than `unattributed`; `unattributed` forbids `delegation`; any other level requires `delegation`.
+- **v2.1 example corpus** -- 11 positive examples (the 7 carried forward from v2.0, with an `attribution` block on the 5 that carry `delegation`, plus `agent_denied_unattributed`, `agent_fail_open_unattributed`, `agent_asserted_call`, and `agent_bound_method_omitted`) and 21 negative examples under `examples/2.1/negative/` (the 13 carried forward from v2.0 plus 8 boundary probes for R1 to R4, the enum, the object shape, and the `OVERRIDE` amendment).
+- **FHIR R5 extensions** `attribution-level` (`valueCode`) and `attribution-method` (`valueString`), and an `unattributed` agent slice in the profile and translator. The gap analysis gains G10 (no attribution assurance in R5 AuditEvent) and a recorded divergence from the two-events-and-Task pattern for sub-agent chains, which this project proposed on the open ticket FHIR-58715 (section 8).
+- **Test suite** -- `tests/test_v21_defs_structure.py`, `test_v21_positive_examples.py`, `test_v21_negative_examples.py`, `test_v21_conditional_validation.py` (R1 to R4, the `OVERRIDE` amendment, and the RFC 0003 §6 silence table), `test_v21_backward_compat.py` (the v2.0 corpus re-marked to 2.1 with and without `attribution`, every v2.0 negative still rejected, and the §3.1 byte-identity demonstration), and `test_v21_translator.py`. `tests/test_defs_structure.py` now compares the root pointer against `schema/versions/2.1/`.
+- **Documentation** -- `docs/field-definitions.md` (the `attribution` object, the four levels, the ordering, and the `delegation` object, which the v2.0 release left undocumented there), `docs/event-types.md` (the denial and fail-open patterns), `docs/controls-mapping.md` (v2.1 deltas), `docs/query-examples.md` (deployment health and posture queries, and the string-comparison warning), `docs/fhir/fhir-r5-gap-analysis-and-profile.md`, `docs/fhir/README.md`, `README.md`, and `schema/versions/2.1/CHANGELOG.md`.
 - **`CITATION.cff`** -- Citation File Format 1.2.0 metadata. GitHub renders this as the "Cite this repository" box. `preferred-citation` points at BHOS-TR-2026-01 ([10.5281/zenodo.21683079](https://doi.org/10.5281/zenodo.21683079)), the paper describing the standard as a whole; BHOS-TR-2026-03 ([10.5281/zenodo.21682867](https://doi.org/10.5281/zenodo.21682867)), which describes the v2.0 agent attribution layer, is listed under `references`. [`papers/README.md`](papers/README.md) now cites the report DOI.
 - **`.zenodo.json`** -- Zenodo deposit metadata for archived releases, including the `bh-healthcare` community assignment and `isDocumentedBy` related identifiers for both technical reports. Zenodo ignores `CITATION.cff` when this file is present, so it is complete on its own.
 - **Release checklist** in [CONTRIBUTING.md](CONTRIBUTING.md#release-checklist) -- the `version` field in both citation files must be bumped and committed *before* tagging, because Zenodo reads the version from these files rather than from the git tag.
 
 ### Changed
 
+- **`schema_version`** -- `const: "2.1"` in the v2.1 schema.
+- **Conditional validation R4** -- relaxed from the v2.0 rule. An agent actor now requires either `delegation` or `attribution.level: "unattributed"`. The one newly valid shape is an agent actor carrying `attribution.level: "unattributed"` and no `delegation` block. An agent actor carrying neither block is still rejected, and every v2.0 negative example re-marked to 2.1 is still rejected.
+- **`OVERRIDE` rule** -- now also forbids `attribution`.
+- **FHIR R5 translator** -- accepts v2.0 and v2.1 events and translates both example corpora by default; the CI step is renamed and runs both. Output for v2.0 events is unchanged except `meta.profile`.
+- **FHIR profile canonical is versioned** -- `meta.profile` now carries `.../fhir/2.0/StructureDefinition/bh-audit-event` for v2.0 events and `.../fhir/2.1/StructureDefinition/bh-audit-event` for v2.1 events, in place of the unversioned `.../fhir/StructureDefinition/bh-audit-event` that v2.0.0 emitted. The 2.1 profile adds inv-6, inv-7, the `unattributed` slice, and the attribution extensions, and a v2.0 delegated resource does not satisfy inv-6, so one canonical could not describe both. A consumer matching on the old canonical string will see it move.
+- **`docs/versioning.md` version history** -- adds the 2.1 row and the previously missing 2.0 row.
 - **Versioning policy clarified** in [docs/versioning.md](docs/versioning.md#what-constitutes-a-breaking-change) -- the breaking-change list now distinguishes adding a field that is *unconditionally required at the root*, which remains a major bump, from adding a field that is *required only when an existing optional object is present*, which is a minor bump. Rationale: `schema_version` is a `const` per version, so no stored record is ever reinterpreted, and a conditionally required field is unreachable for producers that were not already emitting the object it attaches to. The prior wording forbade both cases without distinguishing them. No schema change; this is a policy clarification that applies to future revisions.
 - **FHIR G3 prior-art reference** in [docs/fhir/fhir-r5-gap-analysis-and-profile.md](docs/fhir/fhir-r5-gap-analysis-and-profile.md) -- corrected to the published `auditevent-OnBehalfOf` extension (canonical `http://hl7.org/fhir/StructureDefinition/auditevent-OnBehalfOf`).
 
+### Fixed
+
+- **Translator agent slicing** -- every event without a `delegation` block was emitted as a single `direct` agent with `requestor: true`. For a v2.1 `unattributed` event that output asserted the agent acted directly as the requestor. Such events now get an `unattributed` slice with `requestor: false`, and the attribution extensions are emitted whether or not a delegation block exists.
+
+### Migration
+
+- Producers that do not emit `delegation`: update `schema_version` to `"2.1"`. Nothing else changes.
+- Producers that emit `delegation`: add `attribution` to every such event, with `level` determined from the resolution path actually used. Do not default it to `verified`.
+- Enforcing layers: emit `attribution.level: "unattributed"` with no `delegation` block on the denial and fail-open paths, which v2.0 could not represent.
+- Consumers: queries of the form "all agent actions with a named authorizing human" continue to work unchanged. Add a health query on `attribution.level = 'unattributed'` and a posture query on the distribution of `level`. Express any threshold on `level` as set membership or a rank join, never as a string comparison: lexical order places `unattributed` above `bound`.
+
 ### Notes
 
+- The four levels are totally ordered, weakest to strongest: `unattributed` < `asserted` < `bound` < `verified` (RFC 0003 §4.4). The order is normative and is not serialized.
+- RFC 0003 §12.2 open item 1, whether `method` becomes a closed enum in a later version, remains open. Open item 2, whether `asserted` belongs in the enforced tier, is deferred to RFC 0002.
 - No software DOI is recorded yet. One is minted only when Zenodo archives the first release; the concept DOI should then be added to `CITATION.cff` as an `identifiers` entry and badged in the README.
 - The Zenodo webhook archives only releases created after it is enabled, so the existing v2.0.0 tag is not archived retroactively.
 
@@ -131,7 +161,8 @@ See [docs/controls-mapping.md](docs/controls-mapping.md) for detailed HIPAA Secu
 - Documentation: field definitions, event types, privacy model, controls mapping, query examples, rationale, versioning.
 - Examples: patient read, login, note update failure, patient data export.
 
-[Unreleased]: https://github.com/bh-healthcare/bh-audit-schema/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/bh-healthcare/bh-audit-schema/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/bh-healthcare/bh-audit-schema/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.2...v2.0.0
 [1.1.2]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/bh-healthcare/bh-audit-schema/compare/v1.1.0...v1.1.1

@@ -1,8 +1,8 @@
 {
   "upload_type": "software",
   "title": "bh-audit-schema: An Open Audit Event Standard for Behavioral Health Systems",
-  "version": "2.0.0",
-  "description": "<p>An open, versioned JSON Schema standard for behavioral health audit events, with a FHIR R5 AuditEvent profile and reference translator. PHI-minimizing by construction and mapped to HIPAA Security Rule, 42 CFR Part 2, and SOC 2 control objectives.</p><p>Version 2.0 adds a three-role attribution model (authenticating, acting, authorizing) that makes AI agent-mediated access to patient records attributable, with validation that rejects an unattributed agent action by construction.</p><p>Documented in Technical Reports BHOS-TR-2026-01 and BHOS-TR-2026-03, linked below.</p>",
+  "version": "2.1.0",
+  "description": "<p>An open, versioned JSON Schema standard for behavioral health audit events, with a FHIR R5 AuditEvent profile and reference translator. PHI-minimizing by construction and mapped to HIPAA Security Rule, 42 CFR Part 2, and SOC 2 control objectives.</p><p>Version 2.0 adds a three-role attribution model (authenticating, acting, authorizing) that makes AI agent-mediated access to patient records attributable, with validation that rejects an unattributed agent action by construction.</p><p>Version 2.1 adds an attribution assurance level (verified, bound, asserted, unattributed) recording how each attribution was established, so an agent action whose authorizing human could not be named is recorded explicitly.</p><p>Documented in Technical Reports BHOS-TR-2026-01 and BHOS-TR-2026-03, linked below.</p>",
   "creators": [
     {
       "name": "Kumar, Tanmaya",

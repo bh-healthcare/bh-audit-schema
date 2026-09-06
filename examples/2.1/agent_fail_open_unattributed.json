@@ -1,0 +1,27 @@
+{
+  "schema_version": "2.1",
+  "event_id": "f6b7c8d9-e0f1-4a2b-9c3d-4e5f6a7b8c9d",
+  "timestamp": "2026-09-01T10:15:02Z",
+  "service": { "name": "bh-mcp-gateway", "environment": "staging" },
+  "correlation": {
+    "request_id": "req_agent_fail_open_006"
+  },
+  "actor": {
+    "subject_id": "agent_cred_031",
+    "subject_type": "agent",
+    "org_id": "org_77"
+  },
+  "attribution": { "level": "unattributed", "method": "fail_open" },
+  "action": {
+    "type": "READ",
+    "name": "get_patient",
+    "phi_touched": true,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "Patient",
+    "id": "pat_456",
+    "patient_id": "pat_456"
+  },
+  "outcome": { "status": "SUCCESS" }
+}

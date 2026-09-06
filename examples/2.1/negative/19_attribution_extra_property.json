@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.1",
+  "event_id": "19000000-0000-4000-8000-000000000019",
+  "timestamp": "2026-09-01T10:00:00Z",
+  "service": { "name": "bh-mcp-gateway" },
+  "actor": {
+    "subject_id": "agent_cred_009",
+    "subject_type": "agent",
+    "org_id": "org_77"
+  },
+  "attribution": { "level": "unattributed", "confidence": "high" },
+  "action": { "type": "READ", "phi_touched": false, "data_classification": "PHI" },
+  "resource": { "type": "Patient", "id": "pat_456", "patient_id": "pat_456" },
+  "outcome": { "status": "DENIED", "error_type": "AttributionRequired" }
+}

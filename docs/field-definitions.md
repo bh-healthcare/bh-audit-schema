@@ -1,6 +1,6 @@
 # Field Definitions
 
-This document defines the semantics for each field in the BH Audit Event schema (v1.1).
+This document defines the semantics for each field in the BH Audit Event schema (v2.1). Fields introduced by a later version are marked with that version; unmarked fields date from v1.0.
 
 ---
 
@@ -8,7 +8,7 @@ This document defines the semantics for each field in the BH Audit Event schema 
 
 ### `schema_version`
 
-- **Type:** `string` (const `"1.1"`)
+- **Type:** `string` (const `"2.1"`)
 - **Required:** Yes
 - **Purpose:** Declares which version of the audit schema this event conforms to. Enables consumers to route events to version-appropriate processors.
 
@@ -65,7 +65,7 @@ Describes who or what performed the action.
 | Field          | Type     | Required | Constraints           | Description                                                  |
 |----------------|----------|----------|-----------------------|--------------------------------------------------------------|
 | `subject_id`   | string   | Yes      | minLength: 1, maxLength: 256 | Unique identifier for the actor                        |
-| `subject_type` | string   | Yes      | enum: `human`, `service` | Whether the actor is a human user or a service principal  |
+| `subject_type` | string   | Yes      | enum: `human`, `service`, `agent` | Identity class of the authenticating identity (v2.0: `agent`) |
 | `org_id`       | string   | No       | minLength: 1, maxLength: 128 | Organization/tenant identifier of the actor             |
 | `owner_org_id` | string   | No       | minLength: 1, maxLength: 128 | Organization that owns the resource being accessed      |
 | `roles`        | string[] | No       | maxItems: 25, items minLength: 1, maxLength: 64 | Roles held by the actor at time of access |
@@ -74,6 +74,9 @@ Describes who or what performed the action.
 
 - **`human`**: A human user authenticated via your identity system.
 - **`service`**: A service principal, background job, or machine-to-machine actor.
+- **`agent`** (v2.0): A non-deterministic AI actor presenting its own credentials. An agent actor must carry a `delegation` block or, from v2.1, `attribution.level: "unattributed"`.
+
+Since v2.0, `actor` is defined precisely as the *authenticating* identity: the identity whose credentials were presented to the target system. When an agent acts under a human's credentials, `actor` names the human and `delegation` names the agent.
 
 ### `owner_org_id` (v1.1)
 
@@ -84,6 +87,97 @@ Used for cross-organization access detection. When `actor.org_id != actor.owner_
 - Capture `roles` at time of access to support access review audits.
 - Include `org_id` for multi-tenant systems.
 - Include `owner_org_id` when the resource belongs to a different org than the actor.
+
+---
+
+## `delegation` Object (v2.0)
+
+Records that the action was agent-mediated and who authorized it. Defined by [RFC 0001](rfc/RFC-0001-agent-attribution-github.md); its section 5 carries the full semantics. Its presence asserts the action was agent-mediated. Its absence asserts a direct, non-delegated action unless `attribution.level` is `unattributed`.
+
+| Field                     | Type    | Required    | Constraints                  | Description |
+|---------------------------|---------|-------------|------------------------------|-------------|
+| `acting`                  | object  | Yes         | `subject_id`, `subject_type` (const `agent`), `agent` descriptor with required `interface` | The agent that performed the action |
+| `authorizing`             | object  | Yes         | `subject_id`, `subject_type` (const `human`), optional `org_id` | The human whose intent the action represents. For sub-agent chains, always the root human |
+| `delegation_type`         | string  | Yes         | enum: `supervised`, `autonomous`, `scheduled` | Human-oversight state at the time of the action |
+| `agent_session_id`        | string  | Yes         | minLength: 1, maxLength: 256 | Correlates every action to its session lifecycle events |
+| `chain_depth`             | integer | No          | minimum: 1, maximum: 32      | Depth 1 is an agent delegated directly by the authorizing human; depth 2 is a sub-agent |
+| `parent_agent_session_id` | string  | Conditional | minLength: 1, maxLength: 256 | Session of the parent agent. Present if and only if `chain_depth >= 2` |
+
+From v2.1, every event that carries `delegation` also carries `attribution`.
+
+---
+
+## `attribution` Object (v2.1)
+
+States how this event's attribution was established. Defined by [RFC 0003](rfc/RFC-0003-attribution-assurance.md).
+
+| Field    | Type   | Required | Constraints                 | Description |
+|----------|--------|----------|-----------------------------|-------------|
+| `level`  | string | Yes      | enum (see below)            | How strongly the attribution is known. Consumers reason over this field |
+| `method` | string | No       | minLength: 1, maxLength: 64 | Forensic detail on the mechanism behind the level. Open vocabulary |
+
+### `level` Values
+
+Defined in `$defs/AttributionLevel` and referenced via `$ref: "#/$defs/AttributionLevel"`.
+
+| Level | Meaning | Forgeable by the agent |
+|---|---|---|
+| `verified` | Derived from a token whose issuer asserted the identities | No |
+| `bound` | Operator configuration maps a credential or session to an authorizing identity | No, but it is the operator's assertion and not proof of a human's involvement in this call |
+| `asserted` | Supplied by the agent in the call itself | Yes |
+| `unattributed` | An agent was involved and no authorizing human could be named. No `delegation` block is present | n/a |
+
+There is no `unknown` level. A producer that cannot determine how it established an attribution accepted an identity it cannot vouch for, which is `asserted`. `unattributed` is a positive finding: resolution ran and produced no authorizing human.
+
+### Ordering
+
+The levels form a total order, weakest to strongest:
+
+`unattributed` < `asserted` < `bound` < `verified`
+
+Compare on position in this sequence, never on the serialized string. Lexical order of the four values is `asserted` < `bound` < `unattributed` < `verified`, which places the weakest level above `bound`, so a string comparison against a `bound` threshold admits the one value the threshold exists to exclude. The rank is a property of the specification and is not serialized. In SQL, express a threshold as set membership or a join against a rank table (see [query examples](query-examples.md#attribution-assurance-v21)).
+
+### One level per event, reporting the weakest binding
+
+A delegation block holds identities that may have been established by different mechanisms. `level` describes the block as a whole and reports the weakest mechanism that contributed to it.
+
+### Conditional Rules (v2.1)
+
+| Rule | Condition | Requirement |
+|---|---|---|
+| R1 | `delegation` present | `attribution` required, with `level` one of `verified`, `bound`, `asserted` |
+| R2 | `level` is `unattributed` | `delegation` forbidden |
+| R3 | `level` is `verified`, `bound`, or `asserted` | `delegation` required |
+| R4 | `actor.subject_type` is `agent` | either `delegation` present or `level` is `unattributed` |
+| OVERRIDE | `action.type` is `OVERRIDE` | `attribution` forbidden, in addition to the v2.0 prohibition on `delegation` |
+
+### What presence and absence assert
+
+| `delegation` | `attribution` | The event asserts |
+|---|---|---|
+| absent | absent | No agent was involved |
+| absent | `level: unattributed` | An agent was involved and could not be attributed |
+| present | `level: verified` / `bound` / `asserted` | An agent was involved, who authorized it, and how strongly that is known |
+| present | absent | Invalid |
+| absent | `level` other than `unattributed` | Invalid |
+
+### `method` Values
+
+Examples, not an enum. Producers should use names meaningful to their own resolution paths.
+
+| `method` value | Typical level | Meaning |
+|---|---|---|
+| `id_jag` | `verified` | Identities carried by an ID-JAG token |
+| `bearer_act_claim` | `verified` | Identities carried by a bearer token with a nested `act` claim |
+| `operator_config` | `bound` | Operator configuration mapped the credential or session to the authorizing human |
+| `call_metadata` | `asserted` | The agent supplied the attribution in the call |
+| `no_token_no_binding` | `unattributed` | No token and no configured binding resolved an authorizing human |
+| `fail_open` | `unattributed` | The call proceeded without resolvable attribution under a fail-open setting |
+
+**Guidance:**
+- Determine `level` from the resolution path actually used. Do not default it to `verified`.
+- Emit `unattributed` on the denial and fail-open paths of an enforcing layer, which v2.0 could not represent.
+- Validate R1 to R4 in the producer and raise a producer-side message. A JSON Schema validator reports the `not` and `anyOf` rules by echoing the whole instance.
 
 ---
 
@@ -114,6 +208,7 @@ truth in `$defs`.
 | `LOGIN`  | User authentication                                   |
 | `LOGOUT` | User session termination                              |
 | `PRINT`  | Printing records (physical or PDF generation)         |
+| `OVERRIDE` | A human interrupting, cancelling, or reversing an agent action or session (v2.0) |
 | `OTHER`  | Actions not covered by the above categories           |
 
 ### `phi_touched` and `data_classification`

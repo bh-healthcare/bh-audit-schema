@@ -26,12 +26,13 @@ This repository defines a standardized schema for audit events in behavioral hea
 
 | Path | Description |
 |------|-------------|
-| [`schema/audit_event.schema.json`](schema/audit_event.schema.json) | Latest stable schema (currently **v2.0.0**) -- byte-for-byte copy of `schema/versions/2.0/audit_event.schema.json` |
-| [`schema/versions/2.0/`](schema/versions/2.0/) | **v2.0** -- AI agent attribution and human-agent delegation chain (default). See [RFC 0001](docs/rfc/RFC-0001-agent-attribution-github.md) |
+| [`schema/audit_event.schema.json`](schema/audit_event.schema.json) | Latest stable schema (currently **v2.1.0**) -- byte-for-byte copy of `schema/versions/2.1/audit_event.schema.json` |
+| [`schema/versions/2.1/`](schema/versions/2.1/) | **v2.1** -- attribution assurance and the unattributed agent (default). See [RFC 0003](docs/rfc/RFC-0003-attribution-assurance.md) |
+| [`schema/versions/2.0/`](schema/versions/2.0/) | Immutable v2.0 schema -- AI agent attribution and human-agent delegation chain. See [RFC 0001](docs/rfc/RFC-0001-agent-attribution-github.md) |
 | [`schema/versions/1.1/`](schema/versions/1.1/) | Immutable v1.1.x schema (latest: 1.1.2). v1.1 producers should validate against this path, not the root |
 | [`schema/versions/1.0/`](schema/versions/1.0/) | Immutable v1.0 schema |
 
-> Validating an event against `schema/audit_event.schema.json` now applies v2.0 actor semantics. Producers on v1.1 or v1.0 must validate against their `schema/versions/<version>/` file directly.
+> Validating an event against `schema/audit_event.schema.json` applies the v2.1 rules: v2.0 actor semantics plus the RFC 0003 attribution rules. Producers on v2.0, v1.1, or v1.0 must validate against their `schema/versions/<version>/` file directly.
 
 ### Example Event
 
@@ -61,13 +62,19 @@ Producers in agent-free environments adopt v2.0 by updating `schema_version` to 
 - **Examples**: [`examples/2.0/`](examples/2.0/) (7 positive -- 5 core attribution scenarios plus 2 session-lifecycle convention examples -- and 13 negative)
 - **Controls mapping deltas**: [`docs/controls-mapping.md`](docs/controls-mapping.md#v20-deltas----ai-agent-attribution) -- HIPAA §164.312(b)/(d), 42 CFR Part 2 §2.13/§2.16, SOC 2 CC6.1/CC7.2, NIST AI RMF, ISO/IEC 42001 §8.3
 
-## Proposed: Attribution Assurance
+## v2.1: Attribution Assurance
 
-A draft RFC proposes recording *how* an event's attribution was established alongside *who* authorized the action, and making the unattributed-agent case expressible. Two gaps motivate it. A token-derived attribution and an agent-supplied one currently serialize to byte-identical v2.0 events, so a consumer cannot tell the strongest binding from the weakest. And an event stating that an agent acted with no nameable authorizing human is rejected by v2.0 rather than expressible in it, which means an enforcing layer cannot record its own denials.
+v2.1 records *how* an event's attribution was established alongside *who* authorized the action, and makes the unattributed-agent case expressible. Two gaps motivated it. A token-derived attribution and an agent-supplied one serialized to byte-identical v2.0 events, so a consumer could not tell the strongest binding from the weakest. And an event stating that an agent acted with no nameable authorizing human was rejected by v2.0, so an enforcing layer could not record its own denials.
 
-Draft for discussion until **2026-09-06**, not a release. Targets **v2.1**: the new block is required only when the existing optional `delegation` object is present, which [`docs/versioning.md`](docs/versioning.md#what-constitutes-a-breaking-change) classifies as a minor bump.
+The new optional top-level `attribution` object carries a closed `level` enum (`verified`, `bound`, `asserted`, `unattributed`) and an open `method` string. `attribution` is required whenever the existing optional `delegation` object is present, which [`docs/versioning.md`](docs/versioning.md#what-constitutes-a-breaking-change) classifies as a minor bump. `level: unattributed` with no `delegation` block is the one new shape an agent actor may take; an agent actor carrying neither block is still rejected. The levels are ordered `unattributed` < `asserted` < `bound` < `verified`. Compare on position in that order, never on the string.
+
+Producers in agent-free environments adopt v2.1 by updating `schema_version` to `"2.1"`. Producers that emit `delegation` add `attribution` with the level determined from the resolution path actually used. Enforcing layers also emit `unattributed` on their denial and fail-open paths.
 
 - **RFC**: [`docs/rfc/RFC-0003-attribution-assurance.md`](docs/rfc/RFC-0003-attribution-assurance.md)
+- **Examples**: [`examples/2.1/`](examples/2.1/) (11 positive and 21 negative)
+- **FHIR R5 alignment**: `attribution-level` and `attribution-method` extensions plus an `unattributed` agent slice, so an unattributed event never translates as a direct requestor. See [`docs/fhir/fhir-r5-gap-analysis-and-profile.md`](docs/fhir/fhir-r5-gap-analysis-and-profile.md)
+- **Queries**: [`docs/query-examples.md`](docs/query-examples.md#attribution-assurance-v21) -- deployment health on `unattributed`, level distribution, and why a threshold is never a string comparison
+- **Controls mapping deltas**: [`docs/controls-mapping.md`](docs/controls-mapping.md#v21-deltas----attribution-assurance)
 
 ## Documentation
 
@@ -93,8 +100,8 @@ The schema uses `additionalProperties: false` at all levels (except `metadata`) 
 
 ### Single Source of Truth for Enums
 
-As of **v1.1.2**, the canonical enum types — `ActionType`, `OutcomeStatus`, and
-`DataClassification` — live as named definitions under `$defs` and are referenced
+As of **v1.1.2**, the canonical enum types -- `ActionType`, `OutcomeStatus`, and
+`DataClassification` -- live as named definitions under `$defs` and are referenced
 via `$ref` from `action.type`, `outcome.status`, and `action.data_classification`.
 The accepted values are unchanged. This lets downstream consumers
 (`bh-fastapi-audit`, `bh-audit-logger`, custom validators) derive their allowlists

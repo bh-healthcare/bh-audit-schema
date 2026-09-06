@@ -1,0 +1,31 @@
+{
+  "schema_version": "2.1",
+  "event_id": "e5a6b7c8-d9e0-4f1a-8b2c-3d4e5f6a7b8c",
+  "timestamp": "2026-09-01T10:14:27Z",
+  "service": { "name": "bh-mcp-gateway", "environment": "prod" },
+  "correlation": {
+    "request_id": "req_agent_denied_005"
+  },
+  "actor": {
+    "subject_id": "agent_cred_031",
+    "subject_type": "agent",
+    "org_id": "org_77"
+  },
+  "attribution": { "level": "unattributed", "method": "no_token_no_binding" },
+  "action": {
+    "type": "READ",
+    "name": "get_patient",
+    "phi_touched": false,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "Patient",
+    "id": "pat_456",
+    "patient_id": "pat_456"
+  },
+  "outcome": {
+    "status": "DENIED",
+    "error_type": "AttributionRequired",
+    "error_message": "No authorizing human could be resolved for the presented agent credential."
+  }
+}

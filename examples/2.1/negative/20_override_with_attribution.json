@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.1",
+  "event_id": "20000000-0000-4000-8000-000000000020",
+  "timestamp": "2026-09-01T10:00:00Z",
+  "service": { "name": "bh-agent-control-plane" },
+  "actor": {
+    "subject_id": "user_123",
+    "subject_type": "human",
+    "org_id": "org_77"
+  },
+  "attribution": { "level": "unattributed" },
+  "action": { "type": "OVERRIDE", "name": "cancel" },
+  "resource": { "type": "AgentSession", "id": "agsess_Y" },
+  "outcome": { "status": "SUCCESS" }
+}

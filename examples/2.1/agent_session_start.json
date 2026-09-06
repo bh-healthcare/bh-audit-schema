@@ -1,0 +1,46 @@
+{
+  "schema_version": "2.1",
+  "event_id": "c1622070-93a4-4fb0-b142-5e6f70819203",
+  "timestamp": "2026-06-12T14:01:55Z",
+  "service": { "name": "bh-agent-control-plane", "environment": "prod" },
+  "actor": {
+    "subject_id": "agent_cred_009",
+    "subject_type": "agent",
+    "org_id": "org_77",
+    "roles": ["care_coordinator_delegate"]
+  },
+  "attribution": { "level": "verified", "method": "id_jag" },
+  "delegation": {
+    "acting": {
+      "subject_id": "agent_inst_4471",
+      "subject_type": "agent",
+      "agent": {
+        "interface": "mcp",
+        "vendor": "vendor_a",
+        "model_family": "model_x",
+        "model_version": "x-3.1",
+        "harness": "mcp_gateway",
+        "harness_version": "0.4.2"
+      }
+    },
+    "authorizing": {
+      "subject_id": "user_123",
+      "subject_type": "human",
+      "org_id": "org_77"
+    },
+    "delegation_type": "supervised",
+    "agent_session_id": "agsess_01J9X0001",
+    "chain_depth": 1
+  },
+  "action": {
+    "type": "CREATE",
+    "name": "agent_session_start",
+    "phi_touched": false,
+    "data_classification": "NONE"
+  },
+  "resource": {
+    "type": "AgentSession",
+    "id": "agsess_01J9X0001"
+  },
+  "outcome": { "status": "SUCCESS" }
+}

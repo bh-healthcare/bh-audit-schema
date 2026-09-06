@@ -50,7 +50,12 @@ schema/
     ├── 1.0/
     │   ├── audit_event.schema.json
     │   └── CHANGELOG.md
-    └── 1.1/                     # Future
+    ├── 1.1/
+    │   ├── audit_event.schema.json
+    │   └── CHANGELOG.md
+    ├── 2.0/
+    │   └── audit_event.schema.json
+    └── 2.1/
         ├── audit_event.schema.json
         └── CHANGELOG.md
 ```
@@ -144,7 +149,9 @@ Schema changes follow this process:
 
 | Version | Release Date | Status       | Notes                                                        |
 |---------|--------------|--------------|--------------------------------------------------------------|
-| 1.1.2   | 2026-05-12   | Current      | Enum `$defs` refactor (structural, no value changes)         |
+| 2.1     | 2026-09-06   | Current      | Attribution assurance: `attribution` object and the `unattributed` agent case (RFC 0003) |
+| 2.0     | 2026-07-02   | Supported    | AI agent attribution and the human-agent delegation chain (RFC 0001) |
+| 1.1.2   | 2026-05-12   | Supported    | Enum `$defs` refactor (structural, no value changes)         |
 | 1.1     | 2026-03-11   | Supported    | Hardening: UUID enforcement, DENIED status, metadata scalars |
 | 1.0     | 2026-01-06   | Supported    | Initial release                                              |
 

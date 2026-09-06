@@ -187,6 +187,56 @@ When the system correctly refuses access, use `DENIED` (not `FAILURE`). `DENIED`
 
 > **`phi_touched` on DENIED events:** Set to `false` because PHI was not actually accessed -- the request was blocked. `data_classification` still reflects what the *resource contains*, not what the actor saw. This distinction matters for compliance reporting: the resource is PHI, but no PHI was disclosed.
 
+### Agent Action With No Nameable Authorizing Human (v2.1)
+
+An agent presented credentials and no authorizing human could be resolved. v2.0 could not express this event: an agent actor required a `delegation` block, and the block required a human authorizer. v2.1 records it with `attribution.level: "unattributed"` and no `delegation` block. The `actor` still names the agent credential, so the event is not anonymous. The agent descriptor (`interface`, `vendor`, `model_family`) lives inside `delegation.acting.agent` and is therefore not available on these events.
+
+**Enforced-tier denial.** The enforcing layer refused the call because attribution could not be established.
+
+```json
+{
+  "actor": { "subject_id": "agent_cred_031", "subject_type": "agent" },
+  "attribution": { "level": "unattributed", "method": "no_token_no_binding" },
+  "action": { "type": "READ", "phi_touched": false, "data_classification": "PHI" },
+  "resource": { "type": "Patient", "id": "pat_456", "patient_id": "pat_456" },
+  "outcome": { "status": "DENIED", "error_type": "AttributionRequired" }
+}
+```
+
+**Fail-open success.** The call proceeded without resolvable attribution because the deployment was configured to fail open. This is a successful agent tool call with no authorizing human, and it is the record an incident review needs.
+
+```json
+{
+  "actor": { "subject_id": "agent_cred_031", "subject_type": "agent" },
+  "attribution": { "level": "unattributed", "method": "fail_open" },
+  "action": { "type": "READ", "phi_touched": true, "data_classification": "PHI" },
+  "resource": { "type": "Patient", "id": "pat_456", "patient_id": "pat_456" },
+  "outcome": { "status": "SUCCESS" }
+}
+```
+
+Both shapes are valid only with the `attribution` block. An agent actor carrying neither `delegation` nor `attribution` is rejected, as it was in v2.0.
+
+### Agent Action With a Delegation Block (v2.1)
+
+Every event that carries `delegation` also carries `attribution`, with `level` set from the resolution path that produced the delegation block. Do not default it to `verified`.
+
+```json
+{
+  "actor": { "subject_id": "agent_cred_009", "subject_type": "agent" },
+  "attribution": { "level": "verified", "method": "id_jag" },
+  "delegation": {
+    "acting": { "subject_id": "agent_inst_4471", "subject_type": "agent", "agent": { "interface": "mcp" } },
+    "authorizing": { "subject_id": "user_123", "subject_type": "human" },
+    "delegation_type": "supervised",
+    "agent_session_id": "agsess_01J9X0001"
+  },
+  "action": { "type": "READ", "phi_touched": true, "data_classification": "PHI" },
+  "resource": { "type": "Patient", "id": "pat_456", "patient_id": "pat_456" },
+  "outcome": { "status": "SUCCESS" }
+}
+```
+
 ---
 
 ## Anti-Patterns to Avoid

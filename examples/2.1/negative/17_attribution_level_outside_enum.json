@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.1",
+  "event_id": "17000000-0000-4000-8000-000000000017",
+  "timestamp": "2026-09-01T10:00:00Z",
+  "service": { "name": "bh-clinical-ui" },
+  "actor": {
+    "subject_id": "user_123",
+    "subject_type": "human",
+    "org_id": "org_77"
+  },
+  "attribution": { "level": "probably_fine" },
+  "action": { "type": "READ", "phi_touched": true, "data_classification": "PHI" },
+  "resource": { "type": "Patient", "id": "pat_456", "patient_id": "pat_456" },
+  "outcome": { "status": "SUCCESS" }
+}
