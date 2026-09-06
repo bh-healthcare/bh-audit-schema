@@ -235,3 +235,37 @@ The delegation record is the operational evidence layer for AI governance claims
 - [ ] For human overrides, emit `OVERRIDE` with `resource.type: AgentSession` and `resource.id` set to the session being overridden
 - [ ] Never place prompt content, model outputs, screenshots, or reasoning traces in events; store such artifacts separately and reference them by opaque ID in `metadata`
 - [ ] Review queries of the form "all actions by user Y" -- where the intent is "performed personally by Y," extend with `delegation IS NULL` or the store equivalent
+
+---
+
+## v2.1 deltas -- attribution assurance
+
+The v2.1 schema (RFC 0003) adds an `attribution` object stating how an event's attribution was established, and makes the case of an agent with no nameable authorizing human expressible. The deltas below are additive to the v2.0 mappings above. They are stated conservatively: `attribution.level` records the mechanism that produced an attribution. It does not verify anything itself, and it does not set a floor. Where the floor sits is a deployment policy decision.
+
+### HIPAA §164.312(d) -- Person or Entity Authentication
+
+v2.0 recorded which identity authenticated and which human authorized. v2.1 records how the authorizing identity became known: from a token whose issuer asserted it (`verified`), from operator configuration (`bound`), or from the agent's own claim (`asserted`). A reviewer evaluating whether an agent-mediated access was tied to an authenticated person can now distinguish an issuer-asserted binding from an honor-system one. Under v2.0 the two produced identical records.
+
+### HIPAA §164.312(b) -- Audit Controls
+
+Two events that previously left no valid record now do. An enforcing layer's denial of an agent call it could not attribute, and a call that proceeded under a fail-open setting without resolvable attribution, are both recordable as `attribution.level: "unattributed"`. The denial rate of an enforcing layer becomes measurable, which is the main signal that the layer is misconfigured or that an agent is reaching a tool without credentials.
+
+### HIPAA §164.308(a)(1)(ii)(D) -- Information System Activity Review
+
+The distribution of `attribution.level` across a service answers whether a deployment claiming token-based attribution is resolving identities from tokens. A review that reads only the delegation block cannot distinguish the two. See [query examples](query-examples.md#attribution-assurance-v21).
+
+### 42 CFR Part 2 §2.13 / §2.16
+
+Consent accountability for an agent-mediated SUD record access attaches to `delegation.authorizing` as before. v2.1 adds the strength of that attachment. An access to Part 2 records recorded at `asserted` names a human on the agent's word alone, and an access recorded as `unattributed` names none. Both are review items under a program's security policies. The schema records the state and does not judge it.
+
+### SOC 2 CC6.1 / CC7.2
+
+`attribution.level` is a monitoring dimension. An `unattributed` event on a controlled path, or a rising share of `asserted` events on a path claimed to be token-resolved, is an anomaly a monitoring control can alert on.
+
+### Implementer checklist additions for v2.1
+
+- [ ] Emit `attribution` on every event that carries `delegation`, with `level` determined from the resolution path actually used; never default it to `verified`
+- [ ] On the denial and fail-open paths of an enforcing layer, emit `attribution.level: "unattributed"` with no `delegation` block
+- [ ] Where a threshold on `attribution.level` is enforced or queried, compare on the RFC 0003 section 4.4 rank, never on the string value
+- [ ] Alert on `attribution.level = 'unattributed'` for paths that are expected to be fully attributed
+- [ ] Validate R1 to R4 in the producer and surface a producer-side error message; a JSON Schema validator reports the `not` and `anyOf` rules by echoing the whole instance

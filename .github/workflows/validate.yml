@@ -27,7 +27,7 @@ jobs:
       - name: Validate examples against schema (positive + negative corpora)
         run: python scripts/validate_examples.py
 
-      - name: Translate v2.0 examples to FHIR R5 AuditEvent (validates R5 structure)
+      - name: Translate v2.0 and v2.1 examples to FHIR R5 AuditEvent (validates R5 structure)
         run: python scripts/translate_to_fhir.py
 
       - name: Run test suite

@@ -10,15 +10,19 @@ abstract: >-
   42 CFR Part 2, and SOC 2 control objectives. Version 2.0 adds a
   three-role attribution model (authenticating, acting, authorizing)
   that makes AI agent-mediated access to patient records attributable,
-  with validation that rejects an unattributed agent action.
+  with validation that rejects an unattributed agent action. Version 2.1
+  adds an attribution assurance level (verified, bound, asserted,
+  unattributed) recording how each attribution was established, so an
+  agent action whose authorizing human could not be named is recorded
+  explicitly.
 type: software
 authors:
   - family-names: Kumar
     given-names: Tanmaya
     orcid: 'https://orcid.org/0009-0005-8844-905X'
     affiliation: Behavioral Health Open Source
-version: 2.0.0
-date-released: '2026-07-02'
+version: 2.1.0
+date-released: '2026-09-06'
 license: Apache-2.0
 repository-code: 'https://github.com/bh-healthcare/bh-audit-schema'
 url: 'https://bh-healthcare.org'

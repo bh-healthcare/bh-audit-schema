@@ -1,0 +1,50 @@
+{
+  "schema_version": "2.1",
+  "event_id": "7c1a2b3d-4e5f-4a6b-8c9d-0e1f2a3b4c5d",
+  "timestamp": "2026-06-12T14:02:11Z",
+  "service": { "name": "bh-intake-api", "environment": "prod" },
+  "correlation": {
+    "request_id": "req_agent_mcp_001",
+    "trace_id": "trace_a1b2c3d4e5"
+  },
+  "actor": {
+    "subject_id": "agent_cred_009",
+    "subject_type": "agent",
+    "org_id": "org_77",
+    "roles": ["care_coordinator_delegate"]
+  },
+  "attribution": { "level": "verified", "method": "id_jag" },
+  "delegation": {
+    "acting": {
+      "subject_id": "agent_inst_4471",
+      "subject_type": "agent",
+      "agent": {
+        "interface": "mcp",
+        "vendor": "vendor_a",
+        "model_family": "model_x",
+        "model_version": "x-3.1",
+        "harness": "mcp_gateway",
+        "harness_version": "0.4.2"
+      }
+    },
+    "authorizing": {
+      "subject_id": "user_123",
+      "subject_type": "human",
+      "org_id": "org_77"
+    },
+    "delegation_type": "supervised",
+    "agent_session_id": "agsess_01J9X0001",
+    "chain_depth": 1
+  },
+  "action": {
+    "type": "READ",
+    "phi_touched": true,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "Patient",
+    "id": "pat_456",
+    "patient_id": "pat_456"
+  },
+  "outcome": { "status": "SUCCESS" }
+}

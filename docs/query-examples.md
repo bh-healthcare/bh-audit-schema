@@ -26,6 +26,7 @@ The schema provides first-class support for the following query dimensions:
 | `outcome.status` | Success/failure filtering | Security incident detection |
 | `resource.type` | Resource-type filtering | PHI category audits |
 | `timestamp` | Time-range queries | Compliance reporting windows |
+| `attribution.level` (v2.1) | Assurance filtering | Enforcing-layer health, attribution posture |
 
 ## Extended Query Examples
 
@@ -60,6 +61,44 @@ WHERE 'physician' = ANY(actor.roles);
 SELECT * FROM audit_events
 WHERE actor.org_id != actor.owner_org_id;
 ```
+
+### Attribution Assurance (v2.1)
+
+`attribution.level` records how an event's attribution was established (RFC 0003). Two queries are worth adding at migration time.
+
+```sql
+-- Deployment health: agent calls that could not be attributed. Previously
+-- unrepresentable. A non-zero count on an enforced path is the clearest
+-- signal that the enforcing layer is misconfigured or that an agent is
+-- reaching a tool without credentials.
+SELECT service.name, outcome.status, COUNT(*) AS events
+FROM audit_events
+WHERE attribution.level = 'unattributed'
+GROUP BY service.name, outcome.status;
+
+-- Posture: distribution of assurance level per service. Answers whether a
+-- deployment claiming token-resolved attribution is resolving from tokens.
+SELECT service.name, attribution.level, COUNT(*) AS events
+FROM audit_events
+WHERE attribution IS NOT NULL
+GROUP BY service.name, attribution.level
+ORDER BY service.name, events DESC;
+
+-- Threshold at or above bound, as set membership.
+SELECT * FROM audit_events
+WHERE attribution.level IN ('verified', 'bound');
+
+-- The same threshold as a join against a rank table.
+WITH attribution_rank(level, rank) AS (
+  VALUES ('unattributed', 0), ('asserted', 1), ('bound', 2), ('verified', 3)
+)
+SELECT e.*
+FROM audit_events e
+JOIN attribution_rank r ON r.level = e.attribution.level
+WHERE r.rank >= 2;
+```
+
+> **Never compare `attribution.level` as a string.** The four levels are ordered `unattributed` < `asserted` < `bound` < `verified` (RFC 0003 section 4.4), and the rank is not serialized. Lexical order is `asserted` < `bound` < `unattributed` < `verified`, so `WHERE attribution.level >= 'bound'` admits `unattributed`, the one value the threshold exists to exclude. The two orderings agree on the other three values, so a query written before `unattributed` existed passes every test it has and fails only on the case the level was added to express. Express a threshold as explicit set membership or as a join against a rank table, as above.
 
 ### Security Incident Detection
 
@@ -140,26 +179,27 @@ For optimal query performance, consider indexing these fields in your data store
 | Medium | `action.type` | Action filtering |
 | Medium | `outcome.status` | Failure detection |
 | Medium | `resource.type` | Resource category reports |
+| Medium | `attribution.level` | Enforcing-layer health and posture queries (v2.1) |
 | Low | `correlation.trace_id` | Distributed tracing lookups |
 
 ## Design Principles
 
 This schema intentionally:
 
-1. **Avoids payload logging** — No raw request/response bodies that might contain PHI
-2. **Uses structured fields** — Enables SQL/NoSQL queries without regex parsing
-3. **Separates identity from content** — `patient_id` is logged, but patient data is not
-4. **Supports both human and machine actors** — `actor.subject_type` distinguishes users from services
-5. **Enables tamper detection** — Optional `integrity` block for hash chaining
+1. **Avoids payload logging** -- No raw request/response bodies that might contain PHI
+2. **Uses structured fields** -- Enables SQL/NoSQL queries without regex parsing
+3. **Separates identity from content** -- `patient_id` is logged, but patient data is not
+4. **Supports both human and machine actors** -- `actor.subject_type` distinguishes users from services
+5. **Enables tamper detection** -- Optional `integrity` block for hash chaining
 
 ## Compliance Alignment
 
 These query capabilities directly support:
 
-- **HIPAA § 164.312(b)** — Audit controls for information system activity
-- **HIPAA § 164.308(a)(1)(ii)(D)** — Information system activity review
-- **42 CFR Part 2** — Substance use disorder record access tracking
-- **SOC 2 CC6.1** — Logical access security audit trails
+- **HIPAA § 164.312(b)** -- Audit controls for information system activity
+- **HIPAA § 164.308(a)(1)(ii)(D)** -- Information system activity review
+- **42 CFR Part 2** -- Substance use disorder record access tracking
+- **SOC 2 CC6.1** -- Logical access security audit trails
 
 ---
 

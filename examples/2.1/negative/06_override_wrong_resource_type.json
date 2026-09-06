@@ -1,0 +1,14 @@
+{
+  "schema_version": "2.1",
+  "event_id": "06000000-0000-4000-8000-000000000006",
+  "timestamp": "2026-06-12T14:02:11Z",
+  "service": { "name": "bh-agent-control-plane" },
+  "actor": {
+    "subject_id": "user_123",
+    "subject_type": "human",
+    "org_id": "org_77"
+  },
+  "action": { "type": "OVERRIDE", "name": "cancel" },
+  "resource": { "type": "Patient", "id": "pat_456" },
+  "outcome": { "status": "SUCCESS" }
+}

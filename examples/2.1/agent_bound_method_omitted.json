@@ -1,0 +1,50 @@
+{
+  "schema_version": "2.1",
+  "event_id": "b8d9e0f1-a2b3-4c4d-9e5f-6a7b8c9d0e1f",
+  "timestamp": "2026-09-01T10:30:12Z",
+  "service": { "name": "bh-export-worker", "environment": "prod" },
+  "actor": {
+    "subject_id": "agent_cred_042",
+    "subject_type": "agent",
+    "org_id": "org_77",
+    "roles": ["reporting_delegate"]
+  },
+  "attribution": { "level": "bound" },
+  "delegation": {
+    "acting": {
+      "subject_id": "agent_inst_5590",
+      "subject_type": "agent",
+      "agent": {
+        "interface": "api",
+        "vendor": "vendor_c",
+        "model_family": "model_z",
+        "model_version": "z-1.4",
+        "harness": "batch_runner",
+        "harness_version": "0.5.0"
+      }
+    },
+    "authorizing": {
+      "subject_id": "user_208",
+      "subject_type": "human",
+      "org_id": "org_77"
+    },
+    "delegation_type": "scheduled",
+    "agent_session_id": "agsess_01J9X0005",
+    "chain_depth": 1
+  },
+  "action": {
+    "type": "EXPORT",
+    "name": "nightly_census",
+    "phi_touched": true,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "PatientRecord",
+    "id": "export_301"
+  },
+  "outcome": { "status": "SUCCESS" },
+  "metadata": {
+    "record_count": 48,
+    "export_format": "csv"
+  }
+}

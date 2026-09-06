@@ -1,7 +1,8 @@
 <!--
 RFC 0003: Attribution Assurance and the Unattributed Agent
 Repository: bh-healthcare/bh-audit-schema
-This document is a draft for community discussion. This is not a release.
+This document is implemented. Released as bh-audit-schema v2.1.0 on 2026-09-06.
+Section 12.2 open item 1 (whether method becomes a closed enum) remains open.
 -->
 
 # RFC 0003: Attribution Assurance and the Unattributed Agent
@@ -10,12 +11,12 @@ This document is a draft for community discussion. This is not a release.
 |---|---|
 | **RFC** | 0003 |
 | **Title** | Attribution Assurance and the Unattributed Agent |
-| **Status** | Draft for discussion. Target version and naming settled 2026-08-14; ordering added 2026-08-26; one open item in section 12.2, plus one deferred to RFC 0002 |
+| **Status** | Implemented. Released 6 September 2026, tag v2.1.0. Target version and naming settled 2026-08-14; ordering added 2026-08-26. Open item 1 in section 12.2 stays open; item 2 is deferred to RFC 0002 |
 | **Target** | bh-audit-schema v2.1 |
 | **Tracking issue** | [#13](https://github.com/bh-healthcare/bh-audit-schema/issues/13) |
 | **Companion** | [RFC 0001: AI Agent Attribution and the Human-Agent Delegation Chain](RFC-0001-agent-attribution-github.md), [RFC 0002: Enforced Attribution Emission for MCP Tool Calls](https://github.com/bh-healthcare/bh-mcp-attribution/blob/main/docs/rfc/RFC-0002-mcp-attribution-enforcement.md) |
 | **Depends on** | bh-audit-schema `2.0` |
-| **Discussion period** | 14 days minimum, closing 2026-09-06 (minor version with a conditional required field, per [GOVERNANCE.md](../../GOVERNANCE.md)) |
+| **Discussion period** | 14 days minimum (minor version with a conditional required field, per [GOVERNANCE.md](../../GOVERNANCE.md)). Opened 2026-08-23, closed 2026-09-06 |
 | **Supersedes** | none |
 | **Created** | 2026-08-23 |
 
@@ -318,7 +319,7 @@ The design in sections 4 and 5 was drafted as a complete candidate schema and ru
 | Check | Result |
 |---|---|
 | The 7 v2.0 positive examples still validate against v2.0, unchanged | 7 of 7 valid |
-| The 7 positives re-marked `2.1` with no `attribution` block | The 4 delegation-bearing events rejected on `'attribution' is a required property`, the 3 others valid. R1 bites where intended and nowhere else |
+| The 7 positives re-marked `2.1` with no `attribution` block | The 5 delegation-bearing events rejected on `'attribution' is a required property`, the 2 others valid. R1 bites where intended and nowhere else |
 | The 7 positives re-marked `2.1` with `attribution` added where delegation exists | 7 of 7 valid |
 | The 13 v2.0 negative examples re-marked `2.1` | 13 of 13 still rejected. v2.1 legalizes nothing v2.0 forbade |
 | The denial shape from section 3.2, with `level: unattributed` | Valid under v2.1, rejected under v2.0 |
@@ -330,7 +331,7 @@ The design in sections 4 and 5 was drafted as a complete candidate schema and ru
 
 11 positive and 21 negative, from 7 and 13.
 
-Positive adds four: an enforced-tier denial at `unattributed`, a fail-open success at `unattributed`, an `asserted` call event, and an `attribution` block carrying `level` with `method` omitted. The four existing agent examples gain an `attribution` block, with at least one at `bound` so the corpus does not exercise a single level.
+Positive adds four: an enforced-tier denial at `unattributed`, a fail-open success at `unattributed`, an `asserted` call event, and an `attribution` block carrying `level` with `method` omitted. The five existing delegation-bearing examples gain an `attribution` block, with at least one at `bound` so the corpus does not exercise a single level.
 
 Negative adds eight: delegation without attribution, `unattributed` alongside a delegation block, a non-`unattributed` level without a delegation block, a level outside the enum, `attribution` missing `level`, `attribution` with an extra property, an `OVERRIDE` carrying `attribution`, and an agent actor carrying neither block.
 
@@ -371,6 +372,10 @@ Permanent once released. Recorded with the date so it is visible as a decision r
 The levels are totally ordered and the order is normative. Decided 2026-08-26, during the discussion period.
 
 The draft as published used "weakest" normatively in section 4.3 without defining an order. The natural derivation from the level names is string comparison, and string comparison places `unattributed` above `bound`. The three levels that predate `unattributed` sort identically under both orderings, so the defect was not observable until the fourth level was proposed. Recorded rather than silently corrected, because the failure mode generalizes: a ranked closed enum whose rank is not stated normatively gets a rank invented independently by every implementer.
+
+**Section 11 count corrected.** Corrected 2026-09-06, at release.
+
+The draft as published stated that re-marking the seven v2.0 positives to `2.1` without an `attribution` block rejected four delegation-bearing events and passed three, and section 11.1 said four existing examples gain the block. The released corpus carries a delegation block on five of the seven: `agent_mcp_patient_read`, `agent_ui_driving_note_write` and `sub_agent_depth2_export`, and also the two session-lifecycle events `agent_session_start` and `agent_session_end`. Only `human_direct_read` and `human_override_agent_session` carry none. The corpus has not changed since 2026-07-02, so the count was wrong when published. The release gate measured five rejected and two valid, and sections 11 and 11.1 now state that. No rule in section 5 moves and nothing changes about what validates. Recorded because a stated measurement has to be the measured one, and this gate runs again on every release.
 
 ### 12.2 Open
 

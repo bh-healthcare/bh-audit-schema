@@ -1,0 +1,57 @@
+{
+  "schema_version": "2.1",
+  "event_id": "8d2b3c4e-5f60-4b7c-9d0e-1f2a3b4c5d6e",
+  "timestamp": "2026-06-12T15:18:44Z",
+  "service": { "name": "bh-clinical-ui", "environment": "prod" },
+  "correlation": {
+    "request_id": "req_agent_ui_002",
+    "session_id": "sess_user_123_aug"
+  },
+  "actor": {
+    "subject_id": "user_123",
+    "subject_type": "human",
+    "org_id": "org_77",
+    "roles": ["clinician"]
+  },
+  "attribution": { "level": "bound", "method": "operator_config" },
+  "delegation": {
+    "acting": {
+      "subject_id": "agent_inst_4471",
+      "subject_type": "agent",
+      "agent": {
+        "interface": "ui_driving",
+        "vendor": "vendor_b",
+        "model_family": "model_y",
+        "model_version": "y-2.0",
+        "harness": "browser_agent",
+        "harness_version": "1.2.0"
+      }
+    },
+    "authorizing": {
+      "subject_id": "user_123",
+      "subject_type": "human",
+      "org_id": "org_77"
+    },
+    "delegation_type": "supervised",
+    "agent_session_id": "agsess_01J9X0002",
+    "chain_depth": 1
+  },
+  "action": {
+    "type": "UPDATE",
+    "name": "note_addendum_append",
+    "phi_touched": true,
+    "data_classification": "PHI"
+  },
+  "resource": {
+    "type": "Note",
+    "id": "note_789",
+    "patient_id": "pat_456"
+  },
+  "http": {
+    "method": "PATCH",
+    "route_template": "/patients/{patient_id}/notes/{note_id}",
+    "status_code": 200,
+    "client_ip": "203.0.113.42"
+  },
+  "outcome": { "status": "SUCCESS" }
+}
